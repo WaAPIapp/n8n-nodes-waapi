@@ -30,9 +30,6 @@ workflows with
 - [Installation](#installation)
 - [Usage](#usage)
   * [Credentials](#credentials)
-    + [Platform](#platform)
-    + [User](#user)
-    + [Inbox](#inbox)
 - [Development](#development)
 - [Support the project](#support-the-project)
 

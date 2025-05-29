@@ -1,0 +1,21 @@
+{
+	"node": "n8n-nodes-base.waapi",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Development",
+		"Developer Tools"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://waapi.readme.io/reference/api-token"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://waapi.app/docs"
+			}
+		]
+	}
+}

@@ -435,7 +435,7 @@
             }
           }
         ],
-        "description": "Send a text message to a chat. The chatId format varies depending on the chat type:\n- Individual chat: {phone_number}@c.us (e.g. 491234567890@c.us)\n- Group chat: {group_id}@g.us (e.g. 123456789-123456789@g.us)\n- Channel/Newsletter: {channel_id}@newsletter (e.g. 123456789@newsletter)",
+        "description": "Send a text message to a chat. The chatId format varies depending on the chat type:\n- Individual chat: {phone_number}@c.us (e.g. 50664083362@c.us)\n- Group chat: {group_id}@g.us (e.g. 123456789-123456789@g.us)\n- Channel/Newsletter: {channel_id}@newsletter (e.g. 123456789@newsletter)",
         "requestBody": {
           "required": true,
           "content": {
@@ -452,13 +452,13 @@
                   },
                   "message": {
                     "type": "string",
-                    "example": "Hello @1234567890, how are you?",
+                    "example": "Hello @50664083362, how are you?",
                     "description": "Text message to send. Can include @123456789 for group chats."
                   },
                   "mentions": {
                     "type": "array",
                     "example": [
-                      "1234567890@c.us"
+                      "50664083362@c.us"
                     ],
                     "items": {
                       "type": "string",
@@ -2223,6 +2223,12 @@
                     "default": 100,
                     "description": "Maximum number of messages to return"
                   },
+                  "offset": {
+                    "type": "integer",
+                    "example": 10,
+                    "default": 0,
+                    "description": "Offset to start fetching messages from"
+                  },
                   "fromMe": {
                     "type": "boolean",
                     "example": false,
@@ -2812,11 +2818,11 @@
                                       },
                                       "user": {
                                         "type": "string",
-                                        "example": "490000000000"
+                                        "example": "50664083362"
                                       },
                                       "_serialized": {
                                         "type": "string",
-                                        "example": "490000000000@c.us"
+                                        "example": "50664083362@c.us"
                                       }
                                     }
                                   },
@@ -4011,6 +4017,208 @@
                         "self": {
                           "type": "string",
                           "example": "https://waapi.app/api/v1/instances/1/client/action/get-contact-by-id"
+                        }
+                      }
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/{id}/client/action/upsert-contact": {
+      "post": {
+        "tags": [
+          "contact"
+        ],
+        "summary": "Add or Edit Contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Instance ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "description": "Creates a new contact or updates an existing one in the WhatsApp address book. The contact will be synchronized to the device's address book if syncToAddressbook is true.",
+        "operationId": "upsert-contact",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phoneNumber",
+                  "firstName",
+                  "lastName"
+                ],
+                "properties": {
+                  "phoneNumber": {
+                    "type": "string",
+                    "example": "50664083362",
+                    "description": "The phone number of the contact"
+                  },
+                  "firstName": {
+                    "type": "string",
+                    "example": "John",
+                    "description": "The first name of the contact"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "example": "Doe",
+                    "description": "The last name of the contact"
+                  },
+                  "syncToAddressbook": {
+                    "type": "boolean",
+                    "example": true,
+                    "default": true,
+                    "description": "Whether to sync the contact to the device's address book"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact saved or updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "instanceId": {
+                      "type": "string",
+                      "example": "1111"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "chatId": {
+                          "type": "object",
+                          "properties": {
+                            "server": {
+                              "type": "string",
+                              "example": "c.us"
+                            },
+                            "user": {
+                              "type": "string",
+                              "example": "1122563896"
+                            },
+                            "_serialized": {
+                              "type": "string",
+                              "example": "1122563896@c.us"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string",
+                          "example": "https://waapi.app/api/v1/instances/1/client/action/upsert-contact"
+                        }
+                      }
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/{id}/client/action/delete-contact": {
+      "post": {
+        "tags": [
+          "contact"
+        ],
+        "summary": "Delete Addressbook Contact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Instance ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "description": "Deletes a contact from the WhatsApp address book.",
+        "operationId": "delete-contact",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phoneNumber"
+                ],
+                "properties": {
+                  "phoneNumber": {
+                    "type": "string",
+                    "example": "50664083362",
+                    "description": "The phone number of the contact to delete"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Contact deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "$ref": "#/components/schemas/status"
+                    },
+                    "instanceId": {
+                      "type": "string",
+                      "example": "1111"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "phoneNumber": {
+                          "type": "string",
+                          "example": "50664083362",
+                          "description": "The phone number of the deleted contact"
+                        },
+                        "deleted": {
+                          "type": "boolean",
+                          "example": true,
+                          "description": "Indicates whether the contact was successfully deleted"
+                        }
+                      }
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "self": {
+                          "type": "string",
+                          "example": "https://waapi.app/api/v1/instances/1/client/action/delete-contact"
                         }
                       }
                     },

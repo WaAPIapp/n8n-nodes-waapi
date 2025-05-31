@@ -1,6 +1,6 @@
 {
   "name": "@waapiapp/n8n-nodes-waapi",
-  "version": "1.6.5",
+  "version": "1.6.7",
   "description": "n8n node to connect with WaAPI",
   "keywords": [
     "n8n-community-node-package"

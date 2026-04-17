@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "WaAPI API",
-    "description": "WaAPI is a simple API gateway for sending WhatsApp messages. On top of that, you are able to fully control your virtual WhatsApp application just by sending simple REST API requests.",
+    "description": "WaAPI is a simple API gateway for sending messages. On top of that, you are able to fully control your virtual application just by sending simple REST API requests.",
     "version": "v1.6.0"
   },
   "servers": [
@@ -18,11 +18,11 @@
   "tags": [
     {
       "name": "instances",
-      "description": "Operations related to managing WhatsApp instances."
+      "description": "Operations related to managing instances."
     },
     {
       "name": "client",
-      "description": "Operations related to the WhatsApp client within an instance."
+      "description": "Operations related to the client within an instance."
     },
     {
       "name": "message",
@@ -330,7 +330,7 @@
             }
           }
         ],
-        "description": "Retrieves a base64 encoded QR code image that can be used to authenticate and connect a WhatsApp account to this instance. The QR code should be scanned using the WhatsApp mobile app to complete authentication.",
+        "description": "Retrieves a base64 encoded QR code image that can be used to authenticate and connect an account to this instance. The QR code should be scanned using the mobile app to complete authentication.",
         "responses": {
           "200": {
             "description": "Successfully retrieved QR code",
@@ -384,7 +384,7 @@
             }
           }
         ],
-        "description": "retrieve general information of the whatsapp user conntected to your instance",
+        "description": "retrieve general information of the user conntected to your instance",
         "responses": {
           "200": {
             "description": "A JSON array instances",
@@ -776,7 +776,7 @@
             }
           }
         ],
-        "description": "Mark all messages in a chat as seen (read). This will show blue ticks (double check marks) to the sender only if both parties have read receipts enabled in their WhatsApp privacy settings. If read receipts are disabled by either party, the messages will be marked as delivered (gray ticks) instead.",
+        "description": "Mark all messages in a chat as seen (read). This will show blue ticks (double check marks) to the sender only if both parties have read receipts enabled in their privacy settings. If read receipts are disabled by either party, the messages will be marked as delivered (gray ticks) instead.",
         "requestBody": {
           "required": true,
           "content": {
@@ -875,7 +875,7 @@
                       "waid": {
                         "type": "string",
                         "example": "xxxxxxxxxxxx",
-                        "description": "Optional. WhatsApp ID. Ensures the contact is properly displayed with an image and added to WhatsApp contacts."
+                        "description": "Optional. WA ID. Ensures the contact is properly displayed with an image and added to contacts."
                       },
                       "internationalnumber": {
                         "type": "string",
@@ -1809,7 +1809,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "The unique identifier of the WhatsApp instance",
+            "description": "The unique identifier of the instance",
             "required": true,
             "schema": {
               "type": "integer",
@@ -1932,7 +1932,7 @@
                     "instanceId": {
                       "type": "string",
                       "example": "1",
-                      "description": "ID of the WhatsApp instance"
+                      "description": "ID of the instance"
                     },
                     "data": {
                       "type": "object",
@@ -1972,7 +1972,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "The ID of the WhatsApp instance",
+            "description": "The ID of the instance",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2013,7 +2013,7 @@
                     "instanceId": {
                       "type": "string",
                       "example": "1",
-                      "description": "ID of the WhatsApp instance"
+                      "description": "ID of the instance"
                     },
                     "data": {
                       "type": "object",
@@ -2045,7 +2045,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "The ID of the WhatsApp instance",
+            "description": "The ID of the instance",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2086,7 +2086,7 @@
                     "instanceId": {
                       "type": "string",
                       "example": "1",
-                      "description": "ID of the WhatsApp instance"
+                      "description": "ID of the instance"
                     },
                     "data": {
                       "type": "object",
@@ -2123,7 +2123,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "The ID of the WhatsApp instance",
+            "description": "The ID of the instance",
             "required": true,
             "schema": {
               "type": "integer",
@@ -2164,7 +2164,7 @@
                     "instanceId": {
                       "type": "string",
                       "example": "1",
-                      "description": "ID of the WhatsApp instance"
+                      "description": "ID of the instance"
                     },
                     "data": {
                       "type": "object",
@@ -2956,8 +2956,8 @@
         "tags": [
           "contact"
         ],
-        "summary": "Get all WhatsApp contacts",
-        "description": "Retrieves a list of all contacts from the WhatsApp account, including saved contacts and WhatsApp users who have messaged you.",
+        "summary": "Get all contacts",
+        "description": "Retrieves a list of all contacts from the account, including saved contacts and users who have messaged you.",
         "operationId": "get-contacts",
         "parameters": [
           {
@@ -3076,7 +3076,7 @@
         "tags": [
           "number"
         ],
-        "summary": "Get WhatsApp chat ID from phone number",
+        "summary": "Get chat ID from phone number",
         "parameters": [
           {
             "name": "id",
@@ -3089,7 +3089,7 @@
             }
           }
         ],
-        "description": "Converts a phone number into the proper WhatsApp chat ID format. This is especially useful for countries that don't follow the standard chat ID format (like Brazil, Mexico and Argentina). The endpoint ensures you get the correct chat ID for any phone number.",
+        "description": "Converts a phone number into the proper chat ID format. This is especially useful for countries that don't follow the standard chat ID format (like Brazil, Mexico and Argentina). The endpoint ensures you get the correct chat ID for any phone number.",
         "operationId": "get-number-id",
         "requestBody": {
           "required": true,
@@ -3113,7 +3113,7 @@
         },
         "responses": {
           "200": {
-            "description": "Successfully retrieved WhatsApp chat ID",
+            "description": "Successfully retrieved chat ID",
             "content": {
               "application/json": {
                 "schema": {
@@ -3138,7 +3138,7 @@
                                 "server": {
                                   "type": "string",
                                   "example": "c.us",
-                                  "description": "WhatsApp server suffix"
+                                  "description": "Server suffix"
                                 },
                                 "user": {
                                   "type": "string",
@@ -3148,7 +3148,7 @@
                                 "_serialized": {
                                   "type": "string",
                                   "example": "15553334444@c.us",
-                                  "description": "Complete WhatsApp chat ID"
+                                  "description": "Complete chat ID"
                                 }
                               }
                             }
@@ -3605,7 +3605,7 @@
         "tags": [
           "story"
         ],
-        "summary": "Get WhatsApp Stories",
+        "summary": "Get Stories",
         "parameters": [
           {
             "name": "id",
@@ -3618,7 +3618,7 @@
             }
           }
         ],
-        "description": "Retrieves all available WhatsApp stories/status updates that are visible to the authenticated user. This includes both viewed and unviewed stories from contacts.",
+        "description": "Retrieves all available stories/status updates that are visible to the authenticated user. This includes both viewed and unviewed stories from contacts.",
         "operationId": "get-stories",
         "responses": {
           "200": {
@@ -3889,7 +3889,7 @@
             }
           }
         ],
-        "description": "Retrieves detailed contact information for a specific WhatsApp contact using their ID. Returns contact details including name, number, business status, and various contact flags.",
+        "description": "Retrieves detailed contact information for a specific contact using their ID. Returns contact details including name, number, business status, and various contact flags.",
         "operationId": "get-contact-by-id",
         "requestBody": {
           "required": true,
@@ -3904,7 +3904,7 @@
                   "contactId": {
                     "type": "string",
                     "example": "1234567890@c.us",
-                    "description": "The WhatsApp ID of the contact in the format number@c.us"
+                    "description": "The ID of the contact in the format number@c.us"
                   }
                 }
               }
@@ -3947,12 +3947,12 @@
                         "isBusiness": {
                           "type": "boolean",
                           "example": false,
-                          "description": "Whether the contact is a WhatsApp Business account"
+                          "description": "Whether the contact is a Business account"
                         },
                         "isEnterprise": {
                           "type": "boolean",
                           "example": false,
-                          "description": "Whether the contact is a WhatsApp Enterprise account"
+                          "description": "Whether the contact is an Enterprise account"
                         },
                         "labels": {
                           "type": "array",
@@ -3967,7 +3967,7 @@
                         "pushname": {
                           "type": "string",
                           "example": "Contact Name",
-                          "description": "Contact's WhatsApp display name"
+                          "description": "Contact's display name"
                         },
                         "shortName": {
                           "type": "string",
@@ -3987,7 +3987,7 @@
                         "isUser": {
                           "type": "boolean",
                           "example": true,
-                          "description": "Whether this is a regular WhatsApp user"
+                          "description": "Whether this is a regular user"
                         },
                         "isGroup": {
                           "type": "boolean",
@@ -3997,7 +3997,7 @@
                         "isWAContact": {
                           "type": "boolean",
                           "example": true,
-                          "description": "Whether this contact has a WhatsApp account"
+                          "description": "Whether this contact has an account"
                         },
                         "isMyContact": {
                           "type": "boolean",
@@ -4049,7 +4049,7 @@
             }
           }
         ],
-        "description": "Creates a new contact or updates an existing one in the WhatsApp address book. The contact will be synchronized to the device's address book if syncToAddressbook is true.",
+        "description": "Creates a new contact or updates an existing one in the address book. The contact will be synchronized to the device's address book if syncToAddressbook is true.",
         "operationId": "upsert-contact",
         "requestBody": {
           "required": true,
@@ -4161,7 +4161,7 @@
             }
           }
         ],
-        "description": "Deletes a contact from the WhatsApp address book.",
+        "description": "Deletes a contact from the address book.",
         "operationId": "delete-contact",
         "requestBody": {
           "required": true,
@@ -4238,7 +4238,7 @@
         "tags": [
           "contact"
         ],
-        "summary": "Block a WhatsApp Contact",
+        "summary": "Block a Contact",
         "parameters": [
           {
             "name": "id",
@@ -4251,7 +4251,7 @@
             }
           }
         ],
-        "description": "Blocks a WhatsApp contact, preventing them from sending messages to the authenticated user. The contact will not be able to see the user's last seen, online status, or status updates.",
+        "description": "Blocks a contact, preventing them from sending messages to the authenticated user. The contact will not be able to see the user's last seen, online status, or status updates.",
         "operationId": "block-contact",
         "requestBody": {
           "required": true,
@@ -4266,7 +4266,7 @@
                   "contactId": {
                     "type": "string",
                     "example": "1234567890@c.us",
-                    "description": "The WhatsApp ID of the contact to block in the format number@c.us"
+                    "description": "The ID of the contact to block in the format number@c.us"
                   }
                 }
               }
@@ -4287,7 +4287,7 @@
                         "contactId": {
                           "type": "string",
                           "example": "1234567890@c.us",
-                          "description": "The WhatsApp ID of the blocked contact"
+                          "description": "The ID of the blocked contact"
                         },
                         "blocked": {
                           "type": "boolean",
@@ -4321,7 +4321,7 @@
         "tags": [
           "contact"
         ],
-        "summary": "Unblock a WhatsApp Contact",
+        "summary": "Unblock a Contact",
         "parameters": [
           {
             "name": "id",
@@ -4349,7 +4349,7 @@
                   "contactId": {
                     "type": "string",
                     "example": "1234567890@c.us",
-                    "description": "The WhatsApp ID of the contact to unblock in the format number@c.us"
+                    "description": "The ID of the contact to unblock in the format number@c.us"
                   }
                 }
               }
@@ -4370,7 +4370,7 @@
                         "contactId": {
                           "type": "string",
                           "example": "1234567890@c.us",
-                          "description": "The WhatsApp ID of the unblocked contact"
+                          "description": "The ID of the unblocked contact"
                         },
                         "unblocked": {
                           "type": "boolean",
@@ -4556,7 +4556,7 @@
                   "contactId": {
                     "type": "string",
                     "example": "1234567890@c.us",
-                    "description": "The WhatsApp ID of the contact"
+                    "description": "The ID of the contact"
                   }
                 }
               }
@@ -4640,7 +4640,7 @@
                   "contactId": {
                     "type": "string",
                     "example": "123456789@c.us",
-                    "description": "The WhatsApp ID of the contact"
+                    "description": "The ID of the contact"
                   }
                 }
               }
@@ -4670,7 +4670,7 @@
                           "properties": {
                             "about": {
                               "type": "string",
-                              "example": "Hey there! I am using WhatsApp",
+                              "example": "Hey there! I am using WaAPI",
                               "description": "The contact's about/status info. Returns null if you don't have permission to view it"
                             }
                           }
@@ -4900,7 +4900,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "Instance ID of the WhatsApp client",
+            "description": "Instance ID of the client",
             "required": true,
             "schema": {
               "type": "integer",
@@ -4908,7 +4908,7 @@
             }
           }
         ],
-        "description": "Creates a new WhatsApp group with specified name and participants",
+        "description": "Creates a new group with specified name and participants",
         "operationId": "create-group",
         "requestBody": {
           "required": true,
@@ -4929,7 +4929,7 @@
                   },
                   "groupParticipants": {
                     "type": "array",
-                    "description": "Array of WhatsApp contact IDs to add to the group",
+                    "description": "Array of contact IDs to add to the group",
                     "items": {
                       "type": "string",
                       "pattern": "^[0-9]+@c\\.us$"
@@ -4965,7 +4965,7 @@
                           "properties": {
                             "server": {
                               "type": "string",
-                              "description": "WhatsApp group server identifier",
+                              "description": "Group server identifier",
                               "example": "g.us"
                             },
                             "user": {
@@ -6814,7 +6814,7 @@
             }
           }
         ],
-        "description": "Accept a WhatsApp group invite using an invite code",
+        "description": "Accept a group invite using an invite code",
         "operationId": "accept-invite",
         "requestBody": {
           "required": true,
@@ -7321,7 +7321,7 @@
             }
           }
         ],
-        "description": "Search for WhatsApp channels",
+        "description": "Search for channels",
         "operationId": "search-channels",
         "requestBody": {
           "required": true,
@@ -8014,7 +8014,7 @@
             }
           }
         ],
-        "description": "Reboots your WhatsApp instance. This will close the current session and restart the client. The instance will need to be re-authenticated if it was previously logged in.",
+        "description": "Reboots your instance. This will close the current session and restart the client. The instance will need to be re-authenticated if it was previously logged in.",
         "operationId": "reboot",
         "responses": {
           "200": {
@@ -8121,7 +8121,7 @@
         "tags": [
           "client"
         ],
-        "summary": "Set WhatsApp status",
+        "summary": "Set status",
         "parameters": [
           {
             "name": "id",
@@ -8134,7 +8134,7 @@
             }
           }
         ],
-        "description": "Sets the WhatsApp status text for the connected account",
+        "description": "Sets the status text for the connected account",
         "operationId": "set-status",
         "requestBody": {
           "required": true,
@@ -8145,7 +8145,7 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "example": "Hello, I'm using WhatsApp!",
+                    "example": "Hello, I'm using WaAPI!",
                     "description": "The status text to set"
                   }
                 },
@@ -8215,7 +8215,7 @@
             }
           }
         ],
-        "description": "Sets the display name for the WhatsApp account",
+        "description": "Sets the display name for the account",
         "operationId": "set-display-name",
         "requestBody": {
           "required": true,
@@ -8305,7 +8305,7 @@
             }
           }
         ],
-        "description": "Request a WhatsApp pairing code for phone number registration. To prevent abuse and ensure system stability, pairing code requests are limited to 2 per minute. Multiple rapid requests may indicate automated abuse attempts to Whatsapp.",
+        "description": "Request a pairing code for phone number registration. To prevent abuse and ensure system stability, pairing code requests are limited to 2 per minute. Multiple rapid requests may indicate automated abuse attempts.",
         "operationId": "request-pairing-code",
         "requestBody": {
           "required": true,

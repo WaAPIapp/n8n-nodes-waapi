@@ -5213,7 +5213,8 @@
                         },
                         "inviteCodeLink": {
                           "type": "string",
-                          "example": "https://chat.whatsapp.com/abcxyzdefgfh"
+                          "example": "<invite-link>",
+                          "description": "Group invite link — format delivered by the service, see response payload"
                         },
                         "participants": {
                           "type": "array",
@@ -8872,7 +8873,8 @@
               },
               "profilePicUrl": {
                 "type": "string",
-                "example": "https://pps.whatsapp.net/v/<profileImageUrl>"
+                "example": "<profile-image-url>",
+                "description": "Profile picture URL — format delivered by the service, see response payload"
               }
             }
           }

@@ -8732,8 +8732,1357 @@
           }
         }
       }
+    },
+  "/instances/{id}/client/action/get-privacy-settings": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "get privacy settings",
+      "description": "Retrieve the authenticated account's privacy settings.",
+      "operationId": "get-privacy-settings",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Privacy settings retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "description": "Account privacy settings",
+                        "properties": {
+                          "readReceipts": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "none"
+                            ]
+                          },
+                          "lastSeen": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "online": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "match_last_seen"
+                            ]
+                          },
+                          "profilePicture": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "about": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "groupAdd": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist"
+                            ]
+                          },
+                          "callAdd": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "known"
+                            ]
+                          },
+                          "messages": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
     }
   },
+  "/instances/{id}/client/action/set-privacy-setting": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "set privacy setting",
+      "description": "Update a single privacy category. Allowed values depend on the category.",
+      "operationId": "set-privacy-setting",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "category",
+                "value"
+              ],
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "readReceipts",
+                    "lastSeen",
+                    "online",
+                    "profilePicture",
+                    "about",
+                    "groupAdd",
+                    "callAdd",
+                    "messages"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "description": "Allowed values: all, contacts, contact_blacklist, none, known, match_last_seen"
+                },
+                "disallowedList": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Required only when value is \"contact_blacklist\"."
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Privacy setting updated successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "settings": {
+                        "type": "object",
+                        "description": "Account privacy settings",
+                        "properties": {
+                          "readReceipts": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "none"
+                            ]
+                          },
+                          "lastSeen": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "online": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "match_last_seen"
+                            ]
+                          },
+                          "profilePicture": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "about": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist",
+                              "none"
+                            ]
+                          },
+                          "groupAdd": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts",
+                              "contact_blacklist"
+                            ]
+                          },
+                          "callAdd": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "known"
+                            ]
+                          },
+                          "messages": {
+                            "type": "string",
+                            "enum": [
+                              "all",
+                              "contacts"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/get-disappearing-messages": {
+    "post": {
+      "tags": [
+        "chat"
+      ],
+      "summary": "get disappearing messages",
+      "description": "Return the current disappearing-messages timer for a chat.",
+      "operationId": "get-disappearing-messages",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "chatId"
+              ],
+              "properties": {
+                "chatId": {
+                  "$ref": "#/components/schemas/chatId"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Disappearing messages timer retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "chatId": {
+                        "type": "string"
+                      },
+                      "disappearingMessages": {
+                        "type": "object",
+                        "properties": {
+                          "duration": {
+                            "type": "integer",
+                            "example": 604800,
+                            "description": "Timer in seconds. 0 = off."
+                          },
+                          "settingTimestamp": {
+                            "type": "integer",
+                            "nullable": true,
+                            "description": "Unix timestamp of last change."
+                          },
+                          "isGroup": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/set-disappearing-messages": {
+    "post": {
+      "tags": [
+        "chat"
+      ],
+      "summary": "set disappearing messages",
+      "description": "Set the disappearing-messages timer on a chat. 0 disables; 86400 = 24h, 604800 = 7d, 7776000 = 90d. Groups require admin.",
+      "operationId": "set-disappearing-messages",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "chatId",
+                "duration"
+              ],
+              "properties": {
+                "chatId": {
+                  "$ref": "#/components/schemas/chatId"
+                },
+                "duration": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "example": 604800,
+                  "description": "Timer in seconds. 0 disables."
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Disappearing messages timer set successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "chatId": {
+                        "type": "string"
+                      },
+                      "disappearingMessages": {
+                        "type": "object",
+                        "properties": {
+                          "duration": {
+                            "type": "integer",
+                            "example": 604800,
+                            "description": "Timer in seconds. 0 = off."
+                          },
+                          "settingTimestamp": {
+                            "type": "integer",
+                            "nullable": true,
+                            "description": "Unix timestamp of last change."
+                          },
+                          "isGroup": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/get-disappearing-durations": {
+    "post": {
+      "tags": [
+        "chat"
+      ],
+      "summary": "get disappearing durations",
+      "description": "Return the allowed disappearing-messages durations (in seconds). Server-controlled, may vary by account/region.",
+      "operationId": "get-disappearing-durations",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Allowed durations retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "durations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string"
+                            },
+                            "value": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/get-business-profile": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "get business profile",
+      "description": "Retrieve a business profile. Defaults to the authenticated account. Only WhatsApp Business accounts expose a profile.",
+      "operationId": "get-business-profile",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string",
+                  "description": "Optional serialized contact ID. Omit to query the current account."
+                },
+                "withCompliance": {
+                  "type": "boolean",
+                  "description": "Optional. Request compliance-augmented profile."
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Business profile retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "object",
+                        "description": "Business profile. Only populated for Business accounts.",
+                        "properties": {
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "email": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "address": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "website": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "categories": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "localized_display_name": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "businessHours": {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          "profileOptions": {
+                            "type": "object",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/get-business-categories": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "get business categories",
+      "description": "List available business categories. Pass parentId to drill down; omit for top level.",
+      "operationId": "get-business-categories",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "parentId": {
+                  "type": "string",
+                  "description": "Optional parent category id. Omit or pass empty for top-level."
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Business categories retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "categories": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "localized_display_name": {
+                              "type": "string"
+                            },
+                            "not_a_biz": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      },
+                      "notABizId": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/set-business-profile": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "set business profile",
+      "description": "Update the authenticated business account's profile. Only provided fields are changed. Profile picture is managed separately.",
+      "operationId": "set-business-profile",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                },
+                "latitude": {
+                  "type": "number"
+                },
+                "longitude": {
+                  "type": "number"
+                },
+                "website": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "description": "Up to two websites. Empty array clears them."
+                },
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "businessHours": {
+                  "type": "object",
+                  "description": "{ timezone, note, config: { MON: {mode, hours: [[open, close]]}, ... } }"
+                },
+                "priceTier": {
+                  "type": "string"
+                },
+                "serviceAreas": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Business profile updated successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "profile": {
+                        "type": "object",
+                        "description": "Business profile. Only populated for Business accounts.",
+                        "properties": {
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "email": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "address": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "website": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "url": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "categories": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "localized_display_name": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          },
+                          "businessHours": {
+                            "type": "object",
+                            "nullable": true
+                          },
+                          "profileOptions": {
+                            "type": "object",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/get-quick-replies": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "get quick replies",
+      "description": "List all quick replies configured on the business account.",
+      "operationId": "get-quick-replies",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Quick replies retrieved successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "quickReplies": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "shortcut": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            },
+                            "count": {
+                              "type": "integer"
+                            },
+                            "keywords": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/create-quick-reply": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "create quick reply",
+      "description": "Create a new quick reply. Returns the created quick reply with its generated id.",
+      "operationId": "create-quick-reply",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "shortcut",
+                "message"
+              ],
+              "properties": {
+                "shortcut": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "keywords": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Quick reply created successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "quickReply": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "shortcut": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "keywords": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/update-quick-reply": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "update quick reply",
+      "description": "Update an existing quick reply by id. Only provided fields are changed.",
+      "operationId": "update-quick-reply",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "shortcut": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "keywords": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Quick reply updated successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "quickReply": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "shortcut": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          },
+                          "keywords": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  },
+  "/instances/{id}/client/action/delete-quick-reply": {
+    "post": {
+      "tags": [
+        "client"
+      ],
+      "summary": "delete quick reply",
+      "description": "Delete a quick reply by id.",
+      "operationId": "delete-quick-reply",
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "description": "Instance ID",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Quick reply deleted successfully",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "example": "1",
+                    "description": "ID of the instance"
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "deleted": {
+                        "type": "boolean",
+                        "example": true
+                      }
+                    }
+                  },
+                  "status": {
+                    "$ref": "#/components/schemas/status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Unauthorized — invalid or missing bearer token"
+        },
+        "403": {
+          "description": "Forbidden — insufficient permissions or account blocked"
+        },
+        "404": {
+          "description": "Not found — instance does not exist or does not belong to you"
+        }
+      }
+    }
+  }
+},
   "components": {
     "securitySchemes": {
       "bearerAuth": {

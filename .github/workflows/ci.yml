@@ -41,6 +41,26 @@ jobs:
             console.log("All entry points present.");
           '
 
+      # The node is loaded by whatever n8n-workflow the host n8n ships, not by
+      # the one in devDependencies. A value imported from it that only exists in
+      # recent versions therefore breaks loading on older installations, with
+      # n8n reporting nothing more useful than "The specified package could not
+      # be loaded" -- which is exactly what reached a user in 1.7.3.
+      - name: Load the built node against an old n8n-workflow
+        run: |
+          npm install --no-save --force n8n-workflow@1.48.0
+          node -e '
+            const m = require("./dist/nodes/WaAPI/Waapi.node.js");
+            const d = new m.WaAPI().description;
+            if (!Array.isArray(d.inputs) || d.inputs[0] !== "main") {
+              throw new Error("inputs is " + JSON.stringify(d.inputs));
+            }
+            if (!Array.isArray(d.properties) || d.properties.length < 400) {
+              throw new Error("properties: " + (d.properties || []).length);
+            }
+            console.log("Loads on n8n-workflow 1.48.0 with", d.properties.length, "properties.");
+          '
+
       - run: npm test
 
   # Separate from the matrix on purpose: eslint-plugin-n8n-nodes-base and

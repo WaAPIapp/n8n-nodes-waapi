@@ -11,6 +11,13 @@ import generated from './properties.json';
 
 const properties = generated as unknown as INodeProperties[];
 
+// NodeConnectionTypes only exists from n8n-workflow 2.0.0. Reading .Main off it
+// unconditionally throws on anything older -- the node then fails to load with
+// "The specified package could not be loaded", which says nothing about the
+// cause. The value is the string 'main' in both, so the fallback costs nothing
+// and keeps the node loadable on older n8n installations.
+const mainConnection = NodeConnectionTypes?.Main ?? ('main' as never);
+
 export class WaAPI implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'WaAPI',
@@ -26,8 +33,8 @@ export class WaAPI implements INodeType {
         defaults: {
             name: 'WaAPI',
         },
-        inputs: [NodeConnectionTypes.Main],
-        outputs: [NodeConnectionTypes.Main],
+        inputs: [mainConnection],
+        outputs: [mainConnection],
         credentials: [
             {
                 name: 'waapiApi',

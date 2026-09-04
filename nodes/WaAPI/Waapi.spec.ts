@@ -1,4 +1,4 @@
-import { WaAPI } from './WaAPI.node';
+import { WaAPI } from './Waapi.node';
 
 // The properties are generated at build time and imported as JSON, which is a
 // quieter thing to get wrong than it looks: with esModuleInterop, `import * as`

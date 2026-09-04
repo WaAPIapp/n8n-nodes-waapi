@@ -1,0 +1,13 @@
+{
+	// The build excludes tests, and the compiler no longer reads the JSON files
+	// under nodes/. Type-aware linting still needs both, so it gets its own
+	// project rather than widening the one that decides what ships.
+	"extends": "./tsconfig.json",
+	"include": [
+		"credentials/**/*",
+		"nodes/**/*",
+		"scripts/**/*",
+		"package.json",
+	],
+	"exclude": [],
+}

@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+
+    name: node ${{ matrix.node }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: npm ci
+
+      - run: npm run build
+
+      # `tsc` is incremental, and a build that emits nothing still exits 0. The
+      # entry points n8n loads are therefore checked for existence rather than
+      # inferred from the build succeeding -- a silent empty dist has happened
+      # here once already.
+      - name: Check the entry points n8n loads exist
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const fs = require("fs");
+            const missing = [...pkg.n8n.nodes, ...pkg.n8n.credentials].filter((p) => !fs.existsSync(p));
+            if (missing.length) { console.error("Missing:", missing); process.exit(1); }
+            console.log("All entry points present.");
+          '
+
+      - run: npm test
+
+      - run: npm run lint

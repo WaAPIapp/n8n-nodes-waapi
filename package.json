@@ -1,15 +1,23 @@
 {
   "name": "@waapiapp/n8n-nodes-waapi",
-  "version": "1.6.7",
-  "description": "n8n node to connect with WaAPI",
+  "version": "1.7.0",
+  "description": "n8n community node for the WaAPI messaging API: send and receive messages, manage chats, groups and channels.",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "n8n",
+    "n8n-node",
+    "waapi",
+    "messaging",
+    "chat",
+    "automation",
+    "rest-api",
+    "webhooks"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://waapi.app/integrations/n8n",
   "author": {
-    "name": "Devlikapro",
-    "email": "admin@devlike.pro"
+    "name": "WaAPI",
+    "url": "https://waapi.app"
   },
   "repository": {
     "type": "git",
@@ -58,5 +66,8 @@
   },
   "dependencies": {
     "@devlikeapro/n8n-openapi-node": "^0.1.0"
+  },
+  "bugs": {
+    "url": "https://github.com/WaAPIapp/n8n-nodes-waapi/issues"
   }
 }

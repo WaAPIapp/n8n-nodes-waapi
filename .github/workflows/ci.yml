@@ -43,4 +43,22 @@ jobs:
 
       - run: npm test
 
+  # Separate from the matrix on purpose: eslint-plugin-n8n-nodes-base and
+  # jsonc-eslint-parser require Node 20 or newer, and ESLint crashes loading the
+  # config below that. That is a constraint on the tooling, not on the published
+  # package -- which is a class and a JSON file and runs wherever n8n does -- so
+  # it does not belong in the matrix that states what the package supports.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - run: npm run build
+
       - run: npm run lint

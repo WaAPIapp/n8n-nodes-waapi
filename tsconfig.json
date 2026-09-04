@@ -16,6 +16,7 @@
 		"esModuleInterop": true,
 		"resolveJsonModule": true,
 		"incremental": true,
+		"tsBuildInfoFile": "./node_modules/.cache/tsbuildinfo",
 		"declaration": true,
 		"sourceMap": true,
 		"skipLibCheck": true,
@@ -24,7 +25,11 @@
 	"include": [
 		"credentials/**/*",
 		"nodes/**/*",
-		"nodes/**/*.json",
 		"package.json",
+	],
+	// Tests run from the TypeScript sources through ts-jest, so compiling them
+	// only puts them in the published package.
+	"exclude": [
+		"**/*.spec.ts",
 	],
 }

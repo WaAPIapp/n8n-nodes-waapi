@@ -31,14 +31,31 @@ jobs:
       # entry points n8n loads are therefore checked for existence rather than
       # inferred from the build succeeding -- a silent empty dist has happened
       # here once already.
-      - name: Check the entry points n8n loads exist
+      # Existence is not enough. n8n does not import whatever a file exports --
+      # it derives the export name from the file name, as
+      # `path.parse(sourcePath).name.split(".")[0]`, and fails if that exact
+      # name is missing. Renaming Waapi.node.ts without renaming the class
+      # shipped three unloadable releases, and n8n's only message for it is
+      # "The specified package could not be loaded".
+      - name: Check n8n can find the classes it will look for
         run: |
           node -e '
             const pkg = require("./package.json");
             const fs = require("fs");
-            const missing = [...pkg.n8n.nodes, ...pkg.n8n.credentials].filter((p) => !fs.existsSync(p));
-            if (missing.length) { console.error("Missing:", missing); process.exit(1); }
-            console.log("All entry points present.");
+            const path = require("path");
+            const problems = [];
+            for (const rel of [...pkg.n8n.nodes, ...pkg.n8n.credentials]) {
+              if (!fs.existsSync(rel)) { problems.push(rel + ": missing"); continue; }
+              const expected = path.parse(rel).name.split(".")[0];
+              const mod = require("./" + rel);
+              if (typeof mod[expected] !== "function") {
+                problems.push(rel + ": expects class " + expected + ", exports " + Object.keys(mod).join(", "));
+                continue;
+              }
+              new mod[expected]();
+            }
+            if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
+            console.log("Every entry point exports the class n8n looks for.");
           '
 
       # The node is loaded by whatever n8n-workflow the host n8n ships, not by

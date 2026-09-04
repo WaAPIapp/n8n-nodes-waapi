@@ -1,4 +1,4 @@
-import { WaAPI } from './Waapi.node';
+import { Waapi } from './Waapi.node';
 
 // The properties are generated at build time and imported as JSON, which is a
 // quieter thing to get wrong than it looks: with esModuleInterop, `import * as`
@@ -10,7 +10,7 @@ import { WaAPI } from './Waapi.node';
 // .toBeDefined()`. It passed against exactly that broken build, because the
 // mangled object is defined. These assert the shape and the content instead.
 describe('WaAPI node', () => {
-	const description = new WaAPI().description;
+	const description = new Waapi().description;
 	const properties = description.properties;
 
 	it('exposes its properties as an array', () => {
@@ -50,4 +50,25 @@ describe('WaAPI node', () => {
 	it('points at the production API', () => {
 		expect(description.requestDefaults?.baseURL).toBe('https://waapi.app/api/v1');
 	});
+});
+
+// n8n does not import whatever a node file exports. It derives the export name
+// from the file name -- `path.parse(sourcePath).name.split('.')[0]` -- and
+// fails if that exact name is missing, reporting only "The specified package
+// could not be loaded". Renaming this file to satisfy a lint rule, without
+// renaming the class, shipped three releases nobody could install.
+describe('package entry points', () => {
+	const pkg = require('../../package.json');
+
+	it.each([...pkg.n8n.nodes, ...pkg.n8n.credentials])(
+		'%s exports the class n8n derives from its filename',
+		(rel: string) => {
+			const path = require('path');
+			const expected = path.parse(rel).name.split('.')[0];
+			const mod = require('../../' + rel);
+
+			expect(Object.keys(mod)).toContain(expected);
+			expect(typeof mod[expected]).toBe('function');
+		},
+	);
 });

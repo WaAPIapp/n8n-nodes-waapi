@@ -18,7 +18,16 @@ const properties = generated as unknown as INodeProperties[];
 // and keeps the node loadable on older n8n installations.
 const mainConnection = NodeConnectionTypes?.Main ?? ('main' as never);
 
-export class WaAPI implements INodeType {
+/**
+ * The class name must match the file name: n8n derives the export it looks for
+ * as `path.parse(sourcePath).name.split('.')[0]`, so Waapi.node.js must export
+ * `Waapi`. A mismatch is reported only as "The specified package could not be
+ * loaded", which names neither the class nor the file.
+ *
+ * `description.name` stays 'waapi' -- that is the node type in saved workflows
+ * and must not change.
+ */
+export class Waapi implements INodeType {
     description: INodeTypeDescription = {
         displayName: 'WaAPI',
         name: 'waapi',

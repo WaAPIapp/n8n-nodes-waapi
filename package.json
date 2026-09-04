@@ -1,6 +1,6 @@
 {
   "name": "@waapiapp/n8n-nodes-waapi",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "n8n community node for the WaAPI messaging API: send and receive messages, manage chats, groups and channels.",
   "keywords": [
     "n8n-community-node-package",

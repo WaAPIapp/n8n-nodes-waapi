@@ -1,9 +1,13 @@
 name: publish
 
-# npm requires a provenance statement on packages submitted for community node
-# verification, and it can only be produced by a CI run it can attest to -- a
-# publish from a laptop cannot carry one. This also takes the release off a
-# single person's authenticator.
+# Publishes through npm trusted publishing: GitHub Actions proves its identity
+# to npm over OIDC, so no token is stored anywhere and there is no secret to
+# leak or rotate. npm generates the provenance attestation itself, which is what
+# community node verification requires and what a publish from a laptop cannot
+# produce.
+#
+# The trust is pinned on npmjs.com to this repository AND this filename. Renaming
+# this file breaks publishing until the package settings are updated to match.
 on:
   release:
     types: [published]
@@ -11,7 +15,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for provenance
+  id-token: write # lets the runner mint the OIDC token npm verifies
 
 jobs:
   publish:
@@ -19,10 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      # Trusted publishing needs Node >= 22.14.0 and npm >= 11.5.1. Node 22
+      # ships an older npm, so it is upgraded explicitly rather than assumed.
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
+
+      - name: Use an npm that supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm ci
@@ -30,13 +42,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      # `tsc` is incremental and a build that emits nothing still exits 0, so
+      # the files n8n loads are checked for existence rather than inferred.
+      - name: Check the entry points n8n loads exist
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const fs = require("fs");
+            const missing = [...pkg.n8n.nodes, ...pkg.n8n.credentials].filter((p) => !fs.existsSync(p));
+            if (missing.length) { console.error("Missing:", missing); process.exit(1); }
+            console.log("All entry points present.");
+          '
+
       - name: Test
         run: npm test
 
-      # The version published is whatever package.json holds, so it is checked
-      # against the tag rather than assumed: a release tagged v1.7.1 built from
-      # a package.json still saying 1.7.0 would publish the wrong thing, or
-      # silently fail as a duplicate.
+      # A release tagged v1.8.0 built from a package.json still saying 1.7.0
+      # would publish the wrong version, or fail as a duplicate.
       - name: Check the version matches the tag
         if: github.event_name == 'release'
         run: |
@@ -45,7 +67,7 @@ jobs:
           echo "tag=$tag package.json=$pkg"
           [ "$tag" = "$pkg" ]
 
+      # No NODE_AUTH_TOKEN: the OIDC token above is the credential, and npm
+      # attaches provenance on its own for a public package from a public repo.
       - name: Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

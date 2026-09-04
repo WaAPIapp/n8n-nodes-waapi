@@ -63,8 +63,10 @@ describe('package entry points', () => {
 	it.each([...pkg.n8n.nodes, ...pkg.n8n.credentials])(
 		'%s exports the class n8n derives from its filename',
 		(rel: string) => {
-			const path = require('path');
-			const expected = path.parse(rel).name.split('.')[0];
+			// The same derivation as n8n's path.parse(rel).name.split('.')[0],
+			// written without importing 'path': the official rule set forbids
+			// requiring anything here, builtins included.
+			const expected = rel.split('/').pop()!.split('.')[0];
 			const mod = require('../../' + rel);
 
 			expect(Object.keys(mod)).toContain(expected);

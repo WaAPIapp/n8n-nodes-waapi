@@ -7,6 +7,7 @@ import {
 export class WaapiApi implements ICredentialType {
     name = 'waapiApi';
     displayName = 'WaAPI API';
+    icon = { light: 'file:waapi.svg', dark: 'file:waapi.dark.svg' } as const;
     documentationUrl = 'https://waapi.app/docs';
     properties: INodeProperties[] = [
         {

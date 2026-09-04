@@ -1,6 +1,6 @@
 {
   "name": "@waapiapp/n8n-nodes-waapi",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "n8n community node for the WaAPI messaging API: send and receive messages, manage chats, groups and channels.",
   "keywords": [
     "n8n-community-node-package",
@@ -53,14 +53,16 @@
   },
   "devDependencies": {
     "@devlikeapro/n8n-openapi-node": "^0.1.0",
+    "@eslint/eslintrc": "^3.3.7",
+    "@n8n/eslint-plugin-community-nodes": "^0.31.0",
     "@types/jest": "^29.5.12",
-    "@typescript-eslint/parser": "^7.15.0",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "eslint": "^9.29.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
     "gulp": "^4.0.2",
     "jest": "^29.7.0",
     "jsonc-eslint-parser": "^3.3.0",
-    "n8n-workflow": "*",
+    "n8n-workflow": "^2.16.0",
     "prettier": "^3.3.2",
     "ts-jest": "^29.2.5",
     "typescript": "^5.5.3"

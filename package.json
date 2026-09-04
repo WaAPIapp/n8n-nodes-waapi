@@ -1,6 +1,6 @@
 {
   "name": "@waapiapp/n8n-nodes-waapi",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "n8n community node for the WaAPI messaging API: send and receive messages, manage chats, groups and channels.",
   "keywords": [
     "n8n-community-node-package",
@@ -17,11 +17,12 @@
   "homepage": "https://waapi.app/integrations/n8n",
   "author": {
     "name": "WaAPI",
+    "email": "info@waapi.app",
     "url": "https://waapi.app"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/WaAPIapp/n8n-nodes-waapi.git"
+    "url": "git+https://github.com/WaAPIapp/n8n-nodes-waapi.git"
   },
   "engines": {
     "node": ">=18.10",

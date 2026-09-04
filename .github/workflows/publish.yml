@@ -1,10 +1,12 @@
 name: publish
 
-# Publishes through npm trusted publishing: GitHub Actions proves its identity
-# to npm over OIDC, so no token is stored anywhere and there is no secret to
-# leak or rotate. npm generates the provenance attestation itself, which is what
-# community node verification requires and what a publish from a laptop cannot
-# produce.
+# Stages a release through npm trusted publishing: GitHub Actions proves its
+# identity to npm over OIDC, so no token is stored anywhere and there is no
+# secret to leak or rotate. npm generates the provenance attestation itself,
+# which is what community node verification requires and what a publish from a
+# laptop cannot produce.
+#
+# This workflow does not make a version live -- see the last step.
 #
 # The trust is pinned on npmjs.com to this repository AND this filename. Renaming
 # this file breaks publishing until the package settings are updated to match.
@@ -67,7 +69,18 @@ jobs:
           echo "tag=$tag package.json=$pkg"
           [ "$tag" = "$pkg" ]
 
-      # No NODE_AUTH_TOKEN: the OIDC token above is the credential, and npm
-      # attaches provenance on its own for a public package from a public repo.
-      - name: Publish
-        run: npm publish --access public
+      # `npm stage publish`, not `npm publish`: the trusted publisher on
+      # npmjs.com grants this repository stage permission only, which is npm's
+      # own recommendation -- CI puts the tarball in a staging area and a
+      # maintainer approves it with 2FA before anyone can install it. A
+      # compromised repository or an accidental merge therefore cannot ship.
+      #
+      # No NODE_AUTH_TOKEN: the OIDC token above is the credential. No
+      # --access either; the package is already public and the flag is not
+      # documented for this subcommand.
+      #
+      # After this succeeds the version is NOT live. Approve it with
+      # `npm stage list` then `npm stage approve <stage-id>`, or on npmjs.com
+      # under the package's Staged Packages tab.
+      - name: Stage the publish for approval
+        run: npm stage publish

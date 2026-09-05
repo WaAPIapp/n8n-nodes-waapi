@@ -9594,7 +9594,7 @@
     "displayName": "Label Id",
     "name": "labelId",
     "type": "number",
-    "default": "1",
+    "default": 1,
     "routing": {
       "request": {
         "body": {

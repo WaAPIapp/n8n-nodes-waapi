@@ -68,7 +68,7 @@ jobs:
           npm install --no-save --force n8n-workflow@1.48.0
           node -e '
             const m = require("./dist/nodes/WaAPI/Waapi.node.js");
-            const d = new m.WaAPI().description;
+            const d = new m.Waapi().description;
             if (!Array.isArray(d.inputs) || d.inputs[0] !== "main") {
               throw new Error("inputs is " + JSON.stringify(d.inputs));
             }

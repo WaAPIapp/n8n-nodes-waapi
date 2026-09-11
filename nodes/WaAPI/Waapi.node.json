@@ -1,10 +1,10 @@
 {
-	"node": "n8n-nodes-base.waapi",
+	"node": "@waapiapp/n8n-nodes-waapi.waapi",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": [
-		"Development",
-		"Developer Tools"
+		"Communication",
+		"Development"
 	],
 	"resources": {
 		"credentialDocumentation": [

@@ -8052,15 +8052,15 @@
                                     },
                                     "groupParticipants": {
                                         "type": "array",
-                                        "description": "Array of contact IDs to add to the group",
+                                        "description": "Participants to add to the group, each as a phone number ID (`<number>@c.us`) or a LID (`<lid>@lid`). A LID is resolved to its phone number before the group is created; one that cannot be resolved is not added and is reported with statusCode 404. A person given more than once (also by number and by LID) is added once.",
                                         "items": {
                                             "type": "string",
-                                            "pattern": "^[0-9]{7,}@c\\.us$"
+                                            "pattern": "^[0-9]{7,}@(c\\.us|lid)$"
                                         },
                                         "minItems": 1,
                                         "example": [
                                             "123456789@c.us",
-                                            "987654321@c.us"
+                                            "123456789012345@lid"
                                         ]
                                     }
                                 }
@@ -8098,6 +8098,11 @@
                                                         "data": {
                                                             "type": "object",
                                                             "properties": {
+                                                                "title": {
+                                                                    "type": "string",
+                                                                    "description": "Name of the created group",
+                                                                    "example": "My Group Name"
+                                                                },
                                                                 "gid": {
                                                                     "type": "object",
                                                                     "description": "Group ID details",
@@ -8119,16 +8124,39 @@
                                                                         }
                                                                     }
                                                                 },
-                                                                "missingParticipants": {
-                                                                    "type": "array",
-                                                                    "description": "List of participants that could not be added to the group",
-                                                                    "items": {
-                                                                        "type": "string",
-                                                                        "pattern": "^[0-9]{7,}@c\\.us$"
+                                                                "participants": {
+                                                                    "type": "object",
+                                                                    "description": "Outcome per participant, keyed by the ID passed in groupParticipants; the group creator is included under the instance's own phone number ID. statusCode 200: added. 403: can only be added by private invitation; isInviteV4Sent tells whether one was sent. 404: not registered, or a LID that could not be resolved.",
+                                                                    "additionalProperties": {
+                                                                        "type": "object",
+                                                                        "properties": {
+                                                                            "statusCode": {
+                                                                                "type": "integer",
+                                                                                "example": 200
+                                                                            },
+                                                                            "message": {
+                                                                                "type": "string",
+                                                                                "example": "The participant was added successfully"
+                                                                            },
+                                                                            "isGroupCreator": {
+                                                                                "type": "boolean",
+                                                                                "example": false
+                                                                            },
+                                                                            "isInviteV4Sent": {
+                                                                                "type": "boolean",
+                                                                                "description": "Whether a private invitation was sent (statusCode 403 only)",
+                                                                                "example": false
+                                                                            }
+                                                                        }
                                                                     },
-                                                                    "example": [
-                                                                        "123456789@c.us"
-                                                                    ]
+                                                                    "example": {
+                                                                        "123456789@c.us": {
+                                                                            "statusCode": 200,
+                                                                            "message": "The participant was added successfully",
+                                                                            "isGroupCreator": false,
+                                                                            "isInviteV4Sent": false
+                                                                        }
+                                                                    }
                                                                 }
                                                             }
                                                         }

@@ -6259,8 +6259,8 @@
     "displayName": "Group Participants",
     "name": "groupParticipants",
     "type": "json",
-    "default": "[\n  \"123456789@c.us\",\n  \"987654321@c.us\"\n]",
-    "description": "Array of contact IDs to add to the group",
+    "default": "[\n  \"123456789@c.us\",\n  \"123456789012345@lid\"\n]",
+    "description": "Participants to add to the group, each as a phone number ID (`<number>@c.us`) or a LID (`<lid>@lid`). A LID is resolved to its phone number before the group is created; one that cannot be resolved is not added and is reported with statusCode 404. A person given more than once (also by number and by LID) is added once.",
     "routing": {
       "request": {
         "body": {

@@ -479,7 +479,7 @@
         "name": "Download Media",
         "value": "Download Media",
         "action": "download media from message",
-        "description": "Downloads the media content from a message and returns a temporary download URL valid for 15 minutes. Use this instead of get-message-by-id with includeMedia when you only need the media file.",
+        "description": "Downloads the media content from a message and returns a temporary download URL valid for 15 minutes. Use this instead of get-message-by-id with includeMedia when you only need the media file. A success without a file names the reason in `data.reason` (and `data.detail`), e.g. `message_not_found` or `no_media_data`.",
         "routing": {
           "request": {
             "method": "POST",

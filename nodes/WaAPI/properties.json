@@ -16,6 +16,16 @@
         "description": "Operations related to the client within an instance."
       },
       {
+        "name": "Call",
+        "value": "Call",
+        "description": "Operations related to voice and video calls."
+      },
+      {
+        "name": "Business",
+        "value": "Business",
+        "description": "Operations related to WhatsApp Business profiles and quick replies."
+      },
+      {
         "name": "Message",
         "value": "Message",
         "description": "Operations related to sending and managing messages."
@@ -145,7 +155,7 @@
         "name": "Get Request Status",
         "value": "Get Request Status",
         "action": "get async request status",
-        "description": "Retrieve the status or result of an async request by its reference UUID. Results are cached for up to 5 minutes after processing.",
+        "description": "Retrieve the status or result of an async request by its reference UUID. Results are cached for up to 5 minutes after processing. An asynchronous send refused by the send protection is attempted up to four times in total (three retries, each after the node's retryAfter); the last refusal is returned inside data with HTTP 200 and the same reason/retryAfter/message fields as the synchronous 429 body.",
         "routing": {
           "request": {
             "method": "GET",
@@ -342,30 +352,6 @@
         }
       },
       {
-        "name": "Get Chat Presence",
-        "value": "Get Chat Presence",
-        "action": "[BETA] subscribe to and fetch current presence of a chat",
-        "description": "Subscribes to presence updates for the given chat and returns the current state. Subsequent changes emit presence_update webhook events (if enabled in webhook settings).\n\n**Important — subscription model:**\n- Presence in Web is subscription-based. You MUST call this action at least once per chat you want to track. Without a subscribe, the presence_update webhook never fires for that chat.\n- Calling this action again acts as a renewal. Subscriptions are lost on instance reconnect — re-subscribe after any 'ready' event if you want continuous tracking.\n- Privacy reciprocity: if the instance account hides its own last-seen in the settings, it cannot read others' last-seen either. Expect deny:true or hasData:false in that case.\n- High-frequency event — a single active chat can produce 10+ presence_update webhooks per minute. Debounce on your side.\n- Groups: chatstate is always null. Use typingParticipants and recordingParticipants instead. isOnline on a group = 'at least one member online'.\n\nNote: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-chat-presence"
-          }
-        }
-      },
-      {
-        "name": "Get Chat Presence Snapshot",
-        "value": "Get Chat Presence Snapshot",
-        "action": "[BETA] read cached presence for a chat without subscribing",
-        "description": "Returns the locally cached presence for a chat without triggering a new subscription. Returns null if the chat has never been subscribed (via get-chat-presence) during the current session. Use get-chat-presence instead if you want to enable continuous tracking. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-chat-presence-snapshot"
-          }
-        }
-      },
-      {
         "name": "Set Device Name",
         "value": "Set Device Name",
         "action": "set device name",
@@ -374,42 +360,6 @@
           "request": {
             "method": "POST",
             "url": "=/instances/{{$parameter[\"id\"]}}/client/action/set-device-name"
-          }
-        }
-      },
-      {
-        "name": "Create Call Link",
-        "value": "Create Call Link",
-        "action": "create call link",
-        "description": "Creates a call link for a scheduled call.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/create-call-link"
-          }
-        }
-      },
-      {
-        "name": "Send Event Response",
-        "value": "Send Event Response",
-        "action": "send event response",
-        "description": "Sends a response (RSVP) to a calendar event message.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/send-event-response"
-          }
-        }
-      },
-      {
-        "name": "Revoke Status Message",
-        "value": "Revoke Status Message",
-        "action": "revoke status message",
-        "description": "Revokes (deletes) a previously sent status message.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/revoke-status-message"
           }
         }
       },
@@ -434,90 +384,6 @@
           "request": {
             "method": "POST",
             "url": "=/instances/{{$parameter[\"id\"]}}/client/action/set-privacy-setting"
-          }
-        }
-      },
-      {
-        "name": "Get Business Profile",
-        "value": "Get Business Profile",
-        "action": "[BETA] get business profile",
-        "description": "Retrieve a business profile. Defaults to the authenticated account. Only WhatsApp Business accounts expose a profile. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-business-profile"
-          }
-        }
-      },
-      {
-        "name": "Get Business Categories",
-        "value": "Get Business Categories",
-        "action": "[BETA] get business categories",
-        "description": "List available business categories. Pass parentId to drill down; omit for top level. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-business-categories"
-          }
-        }
-      },
-      {
-        "name": "Set Business Profile",
-        "value": "Set Business Profile",
-        "action": "[BETA] set business profile",
-        "description": "Update the authenticated business account's profile. Only provided fields are changed. Profile picture is managed separately. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/set-business-profile"
-          }
-        }
-      },
-      {
-        "name": "Get Quick Replies",
-        "value": "Get Quick Replies",
-        "action": "[BETA] get quick replies",
-        "description": "List all quick replies configured on the business account. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-quick-replies"
-          }
-        }
-      },
-      {
-        "name": "Create Quick Reply",
-        "value": "Create Quick Reply",
-        "action": "[BETA] create quick reply",
-        "description": "Create a new quick reply. Returns the created quick reply with its generated id. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/create-quick-reply"
-          }
-        }
-      },
-      {
-        "name": "Update Quick Reply",
-        "value": "Update Quick Reply",
-        "action": "[BETA] update quick reply",
-        "description": "Update an existing quick reply by id. Only provided fields are changed. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/update-quick-reply"
-          }
-        }
-      },
-      {
-        "name": "Delete Quick Reply",
-        "value": "Delete Quick Reply",
-        "action": "[BETA] delete quick reply",
-        "description": "Delete a quick reply by id. Note: This endpoint is currently in beta and may change without notice.",
-        "routing": {
-          "request": {
-            "method": "POST",
-            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/delete-quick-reply"
           }
         }
       }
@@ -836,6 +702,18 @@
             "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-pinned-messages"
           }
         }
+      },
+      {
+        "name": "Send Event Response",
+        "value": "Send Event Response",
+        "action": "send event response",
+        "description": "Sends a response (RSVP) to a calendar event message.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/send-event-response"
+          }
+        }
       }
     ],
     "default": ""
@@ -1054,6 +932,30 @@
           "request": {
             "method": "POST",
             "url": "=/instances/{{$parameter[\"id\"]}}/client/action/send-stop-typing"
+          }
+        }
+      },
+      {
+        "name": "Get Chat Presence",
+        "value": "Get Chat Presence",
+        "action": "[BETA] subscribe to and fetch current presence of a chat",
+        "description": "Subscribes to presence updates for the given chat and returns the current state. Subsequent changes emit presence_update webhook events (if enabled in webhook settings).\n\n**Important — subscription model:**\n- Presence in Web is subscription-based. You MUST call this action at least once per chat you want to track. Without a subscribe, the presence_update webhook never fires for that chat.\n- Calling this action again acts as a renewal. Subscriptions are lost on instance reconnect — re-subscribe after any 'ready' event if you want continuous tracking.\n- Privacy reciprocity: if the instance account hides its own last-seen in the settings, it cannot read others' last-seen either. Expect deny:true or hasData:false in that case.\n- High-frequency event — a single active chat can produce 10+ presence_update webhooks per minute. Debounce on your side.\n- Groups: chatstate is always null. Use typingParticipants and recordingParticipants instead. isOnline on a group = 'at least one member online'.\n\nNote: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-chat-presence"
+          }
+        }
+      },
+      {
+        "name": "Get Chat Presence Snapshot",
+        "value": "Get Chat Presence Snapshot",
+        "action": "[BETA] read cached presence for a chat without subscribing",
+        "description": "Returns the locally cached presence for a chat without triggering a new subscription. Returns null if the chat has never been subscribed (via get-chat-presence) during the current session. Use get-chat-presence instead if you want to enable continuous tracking. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-chat-presence-snapshot"
           }
         }
       },
@@ -1402,6 +1304,18 @@
           "request": {
             "method": "POST",
             "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-status-privacy"
+          }
+        }
+      },
+      {
+        "name": "Revoke Status Message",
+        "value": "Revoke Status Message",
+        "action": "revoke status message",
+        "description": "Revokes (deletes) a previously sent status message.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/revoke-status-message"
           }
         }
       },
@@ -1869,6 +1783,218 @@
     "default": ""
   },
   {
+    "displayName": "Operation",
+    "name": "operation",
+    "type": "options",
+    "noDataExpression": true,
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ]
+      }
+    },
+    "options": [
+      {
+        "name": "Create Call Link",
+        "value": "Create Call Link",
+        "action": "create call link",
+        "description": "Creates a call link for a scheduled call.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/create-call-link"
+          }
+        }
+      },
+      {
+        "name": "Reject Call",
+        "value": "Reject Call",
+        "action": "[BETA] reject call",
+        "description": "Rejects the ringing incoming call (or the call with callId). Without a matching call the answer is `data.status: error` with `message: failed to reject call` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/reject-call"
+          }
+        }
+      },
+      {
+        "name": "Accept Call",
+        "value": "Accept Call",
+        "action": "[BETA] accept call",
+        "description": "Accepts the ringing incoming call. Media starts after the call connected; audioUrl plays once, imageUrl is shown, videoUrl loops as the camera. hangupAfterSeconds, if given, ends the call that many seconds after it connects. Every media URL is fetched before the call is accepted, so an unusable URL fails the request instead of answering a call that then plays nothing. Errors come back as `data.status: error` with `message` and `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/accept-call"
+          }
+        }
+      },
+      {
+        "name": "End Call",
+        "value": "End Call",
+        "action": "[BETA] end call",
+        "description": "Ends the active call (or the call with callId), whether it is still ringing or already connected. Without a matching call the answer is `data.status: error` with `message: failed to end call` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/end-call"
+          }
+        }
+      },
+      {
+        "name": "Play Call Audio",
+        "value": "Play Call Audio",
+        "action": "[BETA] play call audio",
+        "description": "Plays wav/mp3/ogg (max 25 MB) into the connected call; resolves after playback. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to play call audio` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/play-call-audio"
+          }
+        }
+      },
+      {
+        "name": "Show Call Image",
+        "value": "Show Call Image",
+        "action": "[BETA] show call image",
+        "description": "Shows a jpeg/png as the outgoing camera of the connected video call. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to show call image` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/show-call-image"
+          }
+        }
+      },
+      {
+        "name": "Play Call Video",
+        "value": "Play Call Video",
+        "action": "[BETA] play call video",
+        "description": "Plays an mp4 (H.264) as the outgoing camera of the connected call; loop=false resolves when the clip ended. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to play call video` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/play-call-video"
+          }
+        }
+      },
+      {
+        "name": "Start Call",
+        "value": "Start Call",
+        "action": "[BETA] start call",
+        "description": "Places a voice or video call. Limited to 10 per minute and 100 per hour per instance; the slot is taken before the media URLs are fetched, so a bad audioUrl or videoUrl still spends one. With waitForAnswer (default true) the response tells whether the callee picked up within answerTimeout; on timeout the instance hangs up. Optional audioUrl/imageUrl/videoUrl play after the call was answered; hangupAfterSeconds ends the call and counts from the moment the call connects, not from this response, so a call can last up to the 10 second connection wait plus hangupAfterSeconds. Over the limit the answer is `data.status: error` with `message: too many calls`, an `explanation` and `retryAfter` in seconds. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/start-call"
+          }
+        }
+      }
+    ],
+    "default": ""
+  },
+  {
+    "displayName": "Operation",
+    "name": "operation",
+    "type": "options",
+    "noDataExpression": true,
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Business"
+        ]
+      }
+    },
+    "options": [
+      {
+        "name": "Get Business Profile",
+        "value": "Get Business Profile",
+        "action": "[BETA] get business profile",
+        "description": "Retrieve a business profile. Defaults to the authenticated account. Only WhatsApp Business accounts expose a profile. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-business-profile"
+          }
+        }
+      },
+      {
+        "name": "Get Business Categories",
+        "value": "Get Business Categories",
+        "action": "[BETA] get business categories",
+        "description": "List available business categories. Pass parentId to drill down; omit for top level. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-business-categories"
+          }
+        }
+      },
+      {
+        "name": "Set Business Profile",
+        "value": "Set Business Profile",
+        "action": "[BETA] set business profile",
+        "description": "Update the authenticated business account's profile. Only provided fields are changed. Profile picture is managed separately. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/set-business-profile"
+          }
+        }
+      },
+      {
+        "name": "Get Quick Replies",
+        "value": "Get Quick Replies",
+        "action": "[BETA] get quick replies",
+        "description": "List all quick replies configured on the business account. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/get-quick-replies"
+          }
+        }
+      },
+      {
+        "name": "Create Quick Reply",
+        "value": "Create Quick Reply",
+        "action": "[BETA] create quick reply",
+        "description": "Create a new quick reply. Returns the created quick reply with its generated id. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/create-quick-reply"
+          }
+        }
+      },
+      {
+        "name": "Update Quick Reply",
+        "value": "Update Quick Reply",
+        "action": "[BETA] update quick reply",
+        "description": "Update an existing quick reply by id. Only provided fields are changed. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/update-quick-reply"
+          }
+        }
+      },
+      {
+        "name": "Delete Quick Reply",
+        "value": "Delete Quick Reply",
+        "action": "[BETA] delete quick reply",
+        "description": "Delete a quick reply by id. Note: This endpoint is currently in beta and may change without notice.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/client/action/delete-quick-reply"
+          }
+        }
+      }
+    ],
+    "default": ""
+  },
+  {
     "displayName": "GET /instances",
     "name": "operation",
     "type": "notice",
@@ -1962,6 +2088,33 @@
       "request": {
         "body": {
           "webhook": "={{ JSON.parse($value) }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Instances"
+        ],
+        "operation": [
+          "Create Instance"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Policy",
+    "name": "call_policy",
+    "default": {
+      "mode": "reject_with_message",
+      "message": "We do not take calls. Please send a message.",
+      "hangup_after_seconds": 30
+    },
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+    "routing": {
+      "request": {
+        "body": {
+          "call_policy": "={{ $value }}"
         }
       }
     },
@@ -2082,6 +2235,33 @@
       "request": {
         "body": {
           "webhook": "={{ JSON.parse($value) }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Instances"
+        ],
+        "operation": [
+          "Update Instance"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Policy",
+    "name": "call_policy",
+    "default": {
+      "mode": "reject_with_message",
+      "message": "We do not take calls. Please send a message.",
+      "hangup_after_seconds": 30
+    },
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+    "routing": {
+      "request": {
+        "body": {
+          "call_policy": "={{ $value }}"
         }
       }
     },
@@ -4758,6 +4938,7 @@
     "name": "contactId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Contact ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -5444,7 +5625,7 @@
     "name": "contactId",
     "type": "string",
     "default": "123456789@c.us",
-    "description": "ID with appropriate suffix: @c.us (contacts/chats), @g.us (groups), @newsletter (newsletters)",
+    "description": "ID with its suffix: `@c.us` or `@lid` (contacts), `@g.us` (groups), `@newsletter` (channels).",
     "routing": {
       "request": {
         "body": {
@@ -5506,7 +5687,7 @@
     "name": "contactId",
     "type": "string",
     "default": "1234567890@c.us",
-    "description": "The ID of the contact in the format number@c.us",
+    "description": "Contact ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -5828,7 +6009,7 @@
     "name": "contactId",
     "type": "string",
     "default": "1234567890@c.us",
-    "description": "The ID of the contact to block in the format number@c.us",
+    "description": "Contact to block: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -5890,7 +6071,7 @@
     "name": "contactId",
     "type": "string",
     "default": "1234567890@c.us",
-    "description": "The ID of the contact to unblock in the format number@c.us",
+    "description": "Contact to unblock: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -5989,7 +6170,7 @@
     "name": "contactId",
     "type": "string",
     "default": "1234567890@c.us",
-    "description": "The ID of the contact",
+    "description": "Contact ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -6051,7 +6232,7 @@
     "name": "contactId",
     "type": "string",
     "default": "123456789@c.us",
-    "description": "The ID of the contact",
+    "description": "Contact ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -6113,6 +6294,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group.",
     "routing": {
       "request": {
         "body": {
@@ -6174,6 +6356,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group.",
     "routing": {
       "request": {
         "body": {
@@ -6322,6 +6505,7 @@
     "name": "chatId",
     "type": "string",
     "default": "123456789@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -6383,6 +6567,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -6592,6 +6777,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7055,6 +7241,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7140,6 +7327,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyyyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7164,6 +7352,7 @@
     "name": "participant",
     "type": "string",
     "default": "<xxxxxxxxx>@c.us",
+    "description": "Participant ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -7225,6 +7414,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyyyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7249,6 +7439,7 @@
     "name": "participant",
     "type": "string",
     "default": "<xxxxxxxxx>@c.us",
+    "description": "Participant ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -7310,6 +7501,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyyyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7334,6 +7526,7 @@
     "name": "participant",
     "type": "string",
     "default": "<xxxxxxxxx>@c.us",
+    "description": "Participant ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -7395,6 +7588,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<yyyyyyyyyyyyyyy>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7419,6 +7613,7 @@
     "name": "participant",
     "type": "string",
     "default": "<xxxxxxxxx>@c.us",
+    "description": "Participant ID: `<number>@c.us` or `<lid>@lid`.",
     "routing": {
       "request": {
         "body": {
@@ -7566,6 +7761,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -7650,6 +7846,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@g.us",
+    "description": "Group ID: `<id>@g.us`.",
     "routing": {
       "request": {
         "body": {
@@ -9314,6 +9511,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group.",
     "routing": {
       "request": {
         "body": {
@@ -9375,6 +9573,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group.",
     "routing": {
       "request": {
         "body": {
@@ -9534,6 +9733,7 @@
     "name": "chatId",
     "type": "string",
     "default": "<xxxxx>@c.us",
+    "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group.",
     "routing": {
       "request": {
         "body": {
@@ -10316,7 +10516,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence"
@@ -10334,7 +10534,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence"
@@ -10359,7 +10559,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence"
@@ -10383,7 +10583,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence"
@@ -10407,7 +10607,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence"
@@ -10426,7 +10626,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence Snapshot"
@@ -10444,7 +10644,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence Snapshot"
@@ -10469,7 +10669,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Chat"
         ],
         "operation": [
           "Get Chat Presence Snapshot"
@@ -11076,7 +11276,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Call"
         ],
         "operation": [
           "Create Call Link"
@@ -11094,7 +11294,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Call"
         ],
         "operation": [
           "Create Call Link"
@@ -11118,7 +11318,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Call"
         ],
         "operation": [
           "Create Call Link"
@@ -11153,10 +11353,825 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Call"
         ],
         "operation": [
           "Create Call Link"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/reject-call",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Reject Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Reject Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Reject Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/accept-call",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Video",
+    "name": "video",
+    "type": "boolean",
+    "default": false,
+    "description": "Accept as a video call and send a camera track",
+    "routing": {
+      "request": {
+        "body": {
+          "video": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Audio Url",
+    "name": "audioUrl",
+    "type": "string",
+    "default": "",
+    "description": "wav, mp3 or ogg played once into the call, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "audioUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Image Url",
+    "name": "imageUrl",
+    "type": "string",
+    "default": "",
+    "description": "jpeg or png shown as the outgoing camera, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "imageUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Video Url",
+    "name": "videoUrl",
+    "type": "string",
+    "default": "",
+    "description": "mp4 (H.264) looped as the outgoing camera, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "videoUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Hangup After Seconds",
+    "name": "hangupAfterSeconds",
+    "type": "number",
+    "default": 0,
+    "description": "Hang up at the latest this many seconds after the call connects; omitted means the call stays up until someone ends it",
+    "routing": {
+      "request": {
+        "body": {
+          "hangupAfterSeconds": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Accept Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/end-call",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "End Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "End Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "End Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/play-call-audio",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Audio"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Audio"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Audio"
+        ]
+      }
+    }
+  },
+  {
+    "required": true,
+    "displayName": "Audio Url",
+    "name": "audioUrl",
+    "type": "string",
+    "default": "https://example.com/greeting.mp3",
+    "description": "wav, mp3 or ogg played into the call, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "audioUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Audio"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/show-call-image",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Show Call Image"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Show Call Image"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Show Call Image"
+        ]
+      }
+    }
+  },
+  {
+    "required": true,
+    "displayName": "Image Url",
+    "name": "imageUrl",
+    "type": "string",
+    "default": "https://example.com/card.png",
+    "description": "jpeg or png shown as the outgoing camera, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "imageUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Show Call Image"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/play-call-video",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Video"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Video"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Call Id",
+    "name": "callId",
+    "type": "string",
+    "default": "00E61C7AAD3559F3AFC223D4E3FC1914",
+    "description": "The call to act on. Omit to use the instance's only active call.",
+    "routing": {
+      "request": {
+        "body": {
+          "callId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Video"
+        ]
+      }
+    }
+  },
+  {
+    "required": true,
+    "displayName": "Video Url",
+    "name": "videoUrl",
+    "type": "string",
+    "default": "https://example.com/clip.mp4",
+    "description": "mp4 (H.264) played as the outgoing camera, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "videoUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Video"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Loop",
+    "name": "loop",
+    "type": "boolean",
+    "default": false,
+    "description": "Repeat the clip until the call ends instead of resolving when it ended",
+    "routing": {
+      "request": {
+        "body": {
+          "loop": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Play Call Video"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/client/action/start-call",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "required": true,
+    "displayName": "Chat Id",
+    "name": "chatId",
+    "type": "string",
+    "default": "41763070877@c.us",
+    "description": "The number to call, as `number@c.us` or `number@lid`",
+    "routing": {
+      "request": {
+        "body": {
+          "chatId": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Video",
+    "name": "video",
+    "type": "boolean",
+    "default": false,
+    "description": "Place a video call instead of a voice call",
+    "routing": {
+      "request": {
+        "body": {
+          "video": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Wait For Answer",
+    "name": "waitForAnswer",
+    "type": "boolean",
+    "default": true,
+    "description": "Wait for the callee to pick up before answering the request",
+    "routing": {
+      "request": {
+        "body": {
+          "waitForAnswer": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Answer Timeout",
+    "name": "answerTimeout",
+    "type": "number",
+    "default": 30000,
+    "description": "How long to wait for the callee to pick up, in milliseconds (waitForAnswer only). Capped at 45000: the request blocks for that whole time, and a longer wait would outlive the HTTP connection.",
+    "routing": {
+      "request": {
+        "body": {
+          "answerTimeout": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Audio Url",
+    "name": "audioUrl",
+    "type": "string",
+    "default": "",
+    "description": "wav, mp3 or ogg played once after the call was answered, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "audioUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Image Url",
+    "name": "imageUrl",
+    "type": "string",
+    "default": "",
+    "description": "Still image shown as the outgoing camera once the call connects; jpeg or png, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "imageUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Video Url",
+    "name": "videoUrl",
+    "type": "string",
+    "default": "",
+    "description": "mp4 (H.264) looped as the outgoing camera after the call was answered, max 25 MB",
+    "routing": {
+      "request": {
+        "body": {
+          "videoUrl": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Hangup After Seconds",
+    "name": "hangupAfterSeconds",
+    "type": "number",
+    "default": 0,
+    "description": "Hang up this many seconds after the call connected",
+    "routing": {
+      "request": {
+        "body": {
+          "hangupAfterSeconds": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Call"
+        ],
+        "operation": [
+          "Start Call"
         ]
       }
     }
@@ -11172,7 +12187,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Message"
         ],
         "operation": [
           "Send Event Response"
@@ -11190,7 +12205,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Message"
         ],
         "operation": [
           "Send Event Response"
@@ -11233,7 +12248,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Message"
         ],
         "operation": [
           "Send Event Response"
@@ -11258,7 +12273,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Message"
         ],
         "operation": [
           "Send Event Response"
@@ -11277,7 +12292,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Story"
         ],
         "operation": [
           "Revoke Status Message"
@@ -11295,7 +12310,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Story"
         ],
         "operation": [
           "Revoke Status Message"
@@ -11320,7 +12335,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Story"
         ],
         "operation": [
           "Revoke Status Message"
@@ -11979,7 +12994,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Profile"
@@ -11997,7 +13012,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Profile"
@@ -12021,7 +13036,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Profile"
@@ -12045,7 +13060,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Profile"
@@ -12064,7 +13079,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Categories"
@@ -12082,7 +13097,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Categories"
@@ -12106,7 +13121,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Business Categories"
@@ -12125,7 +13140,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12143,7 +13158,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12166,7 +13181,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12189,7 +13204,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12212,7 +13227,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12235,7 +13250,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12258,7 +13273,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12282,7 +13297,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12305,7 +13320,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12329,7 +13344,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12352,7 +13367,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12375,7 +13390,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Set Business Profile"
@@ -12394,7 +13409,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Quick Replies"
@@ -12412,7 +13427,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Get Quick Replies"
@@ -12431,7 +13446,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Create Quick Reply"
@@ -12449,7 +13464,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Create Quick Reply"
@@ -12473,7 +13488,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Create Quick Reply"
@@ -12497,7 +13512,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Create Quick Reply"
@@ -12520,7 +13535,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Create Quick Reply"
@@ -12539,7 +13554,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12557,7 +13572,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12581,7 +13596,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12604,7 +13619,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12627,7 +13642,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12650,7 +13665,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Update Quick Reply"
@@ -12669,7 +13684,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Delete Quick Reply"
@@ -12687,7 +13702,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Delete Quick Reply"
@@ -12711,7 +13726,7 @@
     "displayOptions": {
       "show": {
         "resource": [
-          "Client"
+          "Business"
         ],
         "operation": [
           "Delete Quick Reply"

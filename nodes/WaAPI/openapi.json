@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "WaAPI API",
-        "description": "WaAPI is a simple API gateway for sending messages.\n\n## Response envelopes\n\nEvery `/instances/{id}/client/action/*` call answers with two status fields:\n\n| Field | Answers |\n|---|---|\n| `status` | Did the request reach the instance? |\n| `data.status` | Did the instance carry the action out? **This is the authoritative one.** |\n\n```json\n{\n  \"status\": \"success\",\n  \"links\": { \"self\": \"https://waapi.app/api/v1/instances/123/client/action/send-message\" },\n  \"data\": {\n    \"status\": \"success\",\n    \"instanceId\": \"123\",\n    \"data\": { }\n  }\n}\n```\n\nA malformed input is **not** an HTTP error. It comes back as HTTP 200 with\n`status: success` and `data.status: error`, and nothing was sent:\n\n```json\n{\n  \"status\": \"success\",\n  \"data\": { \"status\": \"error\", \"message\": \"incorrect chatId format.\", \"explanation\": \"…\" }\n}\n```\n\nCheck `data.status` before treating any action as done.",
+        "description": "WaAPI is a simple API gateway for sending messages.\n\n## Response envelopes\n\nEvery `/instances/{id}/client/action/*` call answers with two status fields:\n\n| Field | Answers |\n|---|---|\n| `status` | Did the request reach the instance? |\n| `data.status` | Did the instance carry the action out? **This is the authoritative one.** |\n\n```json\n{\n  \"status\": \"success\",\n  \"links\": { \"self\": \"https://waapi.app/api/v1/instances/123/client/action/send-message\" },\n  \"data\": {\n    \"status\": \"success\",\n    \"instanceId\": \"123\",\n    \"data\": { }\n  }\n}\n```\n\nA malformed input is **not** an HTTP error. It comes back as HTTP 200 with\n`status: success` and `data.status: error`, and nothing was sent:\n\n```json\n{\n  \"status\": \"success\",\n  \"data\": { \"status\": \"error\", \"message\": \"incorrect chatId format.\", \"explanation\": \"…\" }\n}\n```\n\nCheck `data.status` before treating any action as done.\n\n## Chat and contact IDs\n\n| Form | Addresses |\n|---|---|\n| `<number>@c.us` | a contact by phone number — country code and number, digits only (`491729682587@c.us`) |\n| `<lid>@lid` | the same contact by its Linked ID (LID), an identifier that does not reveal the phone number |\n| `<id>@g.us` | a group |\n| `<id>@newsletter` | a channel |\n\nIncoming messages and events can carry a contact's `@lid` form in `from`, `author` and participant lists —\nalso for contacts you know by phone number. Both forms address the same one-to-one chat: replying to the\n`from` you received reaches that person, whether it ends in `@c.us` or `@lid`. To map one form to the\nother, call `get-lid`; it resolves in both directions. Every `chatId`, `contactId` and `participant`\nparameter accepts the `@lid` form.",
         "version": "v1.7.0"
     },
     "servers": [
@@ -23,6 +23,14 @@
         {
             "name": "client",
             "description": "Operations related to the client within an instance."
+        },
+        {
+            "name": "call",
+            "description": "Operations related to voice and video calls."
+        },
+        {
+            "name": "business",
+            "description": "Operations related to WhatsApp Business profiles and quick replies."
         },
         {
             "name": "message",
@@ -172,6 +180,21 @@
                     "401": {
                         "description": "Unauthorized — invalid or missing bearer token"
                     },
+                    "402": {
+                        "description": "Payment required — a paid instance is charged (prorated) before it is created. The charge was declined, so no instance was created. Update the payment method and retry.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                },
+                                "example": {
+                                    "message": "The payment for the additional instance was declined, so no instance was created. Please update your payment method and try again.",
+                                    "errors": [],
+                                    "status": "error"
+                                }
+                            }
+                        }
+                    },
                     "403": {
                         "description": "Forbidden — insufficient permissions or account blocked"
                     },
@@ -179,7 +202,19 @@
                         "description": "Not found — instance does not exist or does not belong to you"
                     },
                     "409": {
-                        "description": "Conflict — instance is not ready"
+                        "description": "Conflict — another instance is being set up for this account right now; no instance was created. Retry in a minute.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                },
+                                "example": {
+                                    "message": "Another instance is being set up for your account right now. Please try again in a minute.",
+                                    "errors": [],
+                                    "status": "error"
+                                }
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation error — invalid or missing request parameters",
@@ -193,6 +228,21 @@
                     },
                     "429": {
                         "description": "Too many requests — rate limit exceeded"
+                    },
+                    "503": {
+                        "description": "Billing could not be reached, so no instance was created. Retry in a minute.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                },
+                                "example": {
+                                    "message": "Billing could not be reached, so no instance was created. Please try again in a minute.",
+                                    "errors": [],
+                                    "status": "error"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -878,7 +928,7 @@
                 ],
                 "summary": "get async request status",
                 "operationId": "get-request-status",
-                "description": "Retrieve the status or result of an async request by its reference UUID. Results are cached for up to 5 minutes after processing.",
+                "description": "Retrieve the status or result of an async request by its reference UUID. Results are cached for up to 5 minutes after processing. An asynchronous send refused by the send protection is attempted up to four times in total (three retries, each after the node's retryAfter); the last refusal is returned inside data with HTTP 200 and the same reason/retryAfter/message fields as the synchronous 429 body.",
                 "parameters": [
                     {
                         "name": "id",
@@ -998,7 +1048,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "message": {
                                         "type": "string",
@@ -1179,7 +1230,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too many requests — rate limit exceeded"
+                        "$ref": "#/components/responses/sendProtectionRefused"
                     }
                 }
             }
@@ -1216,7 +1267,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "mediaUrl": {
                                         "type": "string",
@@ -1405,7 +1457,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too many requests — rate limit exceeded"
+                        "$ref": "#/components/responses/sendProtectionRefused"
                     }
                 }
             }
@@ -1441,7 +1493,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -1570,7 +1623,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "vCard": {
                                         "type": "object",
@@ -1750,7 +1804,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too many requests — rate limit exceeded"
+                        "$ref": "#/components/responses/sendProtectionRefused"
                     }
                 }
             }
@@ -1788,7 +1842,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "latitude": {
                                         "type": "number",
@@ -1969,7 +2024,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too many requests — rate limit exceeded"
+                        "$ref": "#/components/responses/sendProtectionRefused"
                     }
                 }
             }
@@ -2225,7 +2280,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -2341,7 +2397,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "unmuteDate": {
                                         "type": "string",
@@ -2471,7 +2528,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -2590,7 +2648,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -2714,7 +2773,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -2832,7 +2892,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "limit": {
                                         "type": "integer",
@@ -3834,7 +3895,8 @@
                                         "description": "The ID of the message to forward"
                                     },
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -4838,7 +4900,8 @@
                                 "properties": {
                                     "contactId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -4967,7 +5030,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "caption": {
                                         "type": "string",
@@ -6252,7 +6316,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "123456789@c.us",
-                                        "description": "ID with appropriate suffix: @c.us (contacts/chats), @g.us (groups), @newsletter (newsletters)"
+                                        "description": "ID with its suffix: `@c.us` or `@lid` (contacts), `@g.us` (groups), `@newsletter` (channels)."
                                     }
                                 }
                             }
@@ -6381,7 +6445,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "1234567890@c.us",
-                                        "description": "The ID of the contact in the format number@c.us"
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -7039,7 +7103,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "1234567890@c.us",
-                                        "description": "The ID of the contact to block in the format number@c.us"
+                                        "description": "Contact to block: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -7173,7 +7237,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "1234567890@c.us",
-                                        "description": "The ID of the contact to unblock in the format number@c.us"
+                                        "description": "Contact to unblock: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -7486,7 +7550,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "1234567890@c.us",
-                                        "description": "The ID of the contact"
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -7616,7 +7680,7 @@
                                     "contactId": {
                                         "type": "string",
                                         "example": "123456789@c.us",
-                                        "description": "The ID of the contact"
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -7744,7 +7808,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -7915,7 +7980,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -8246,7 +8312,8 @@
                                     "chatId": {
                                         "type": "string",
                                         "example": "123456789@g.us",
-                                        "pattern": "^[0-9]+@g\\.us$"
+                                        "pattern": "^[0-9]+@g\\.us$",
+                                        "description": "Group ID: `<id>@g.us`."
                                     }
                                 }
                             }
@@ -8402,7 +8469,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@g.us"
+                                        "example": "<xxxxx>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     }
                                 }
                             }
@@ -8901,7 +8969,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "subject": {
                                         "type": "string",
@@ -9774,7 +9843,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "messageAdminOnly": {
                                         "type": "boolean",
@@ -9907,11 +9977,13 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyyyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyyyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "participant": {
                                         "type": "string",
-                                        "example": "<xxxxxxxxx>@c.us"
+                                        "example": "<xxxxxxxxx>@c.us",
+                                        "description": "Participant ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -10034,11 +10106,13 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyyyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyyyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "participant": {
                                         "type": "string",
-                                        "example": "<xxxxxxxxx>@c.us"
+                                        "example": "<xxxxxxxxx>@c.us",
+                                        "description": "Participant ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -10161,11 +10235,13 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyyyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyyyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "participant": {
                                         "type": "string",
-                                        "example": "<xxxxxxxxx>@c.us"
+                                        "example": "<xxxxxxxxx>@c.us",
+                                        "description": "Participant ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -10288,11 +10364,13 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<yyyyyyyyyyyyyyy>@g.us"
+                                        "example": "<yyyyyyyyyyyyyyy>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "participant": {
                                         "type": "string",
-                                        "example": "<xxxxxxxxx>@c.us"
+                                        "example": "<xxxxxxxxx>@c.us",
+                                        "description": "Participant ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -10599,7 +10677,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@g.us"
+                                        "example": "<xxxxx>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     },
                                     "requesterIds": {
                                         "oneOf": [
@@ -10780,7 +10859,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@g.us"
+                                        "example": "<xxxxx>@g.us",
+                                        "description": "Group ID: `<id>@g.us`."
                                     }
                                 }
                             }
@@ -12818,7 +12898,7 @@
                         }
                     },
                     "429": {
-                        "description": "Too many requests — rate limit exceeded"
+                        "$ref": "#/components/responses/sendProtectionRefused"
                     }
                 }
             }
@@ -13268,7 +13348,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -13400,7 +13481,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -13763,7 +13845,8 @@
                                 "properties": {
                                     "chatId": {
                                         "type": "string",
-                                        "example": "<xxxxx>@c.us"
+                                        "example": "<xxxxx>@c.us",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -14012,7 +14095,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "labelIds": {
                                         "type": "array",
@@ -14849,7 +14933,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -14976,7 +15061,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -15103,7 +15189,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -15227,7 +15314,8 @@
                                 "type": "object",
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -15435,7 +15523,7 @@
         "/instances/{id}/client/action/get-chat-presence": {
             "post": {
                 "tags": [
-                    "client"
+                    "chat"
                 ],
                 "summary": "[BETA] subscribe to and fetch current presence of a chat",
                 "operationId": "get-chat-presence",
@@ -15463,7 +15551,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "waitForData": {
                                         "type": "boolean",
@@ -15578,7 +15667,7 @@
         "/instances/{id}/client/action/get-chat-presence-snapshot": {
             "post": {
                 "tags": [
-                    "client"
+                    "chat"
                 ],
                 "summary": "[BETA] read cached presence for a chat without subscribing",
                 "operationId": "get-chat-presence-snapshot",
@@ -15606,7 +15695,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -15741,7 +15831,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "name": {
                                         "type": "string",
@@ -16274,7 +16365,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -16525,7 +16617,7 @@
         "/instances/{id}/client/action/create-call-link": {
             "post": {
                 "tags": [
-                    "client"
+                    "call"
                 ],
                 "summary": "create call link",
                 "description": "Creates a call link for a scheduled call.",
@@ -16655,10 +16747,918 @@
                 }
             }
         },
+        "/instances/{id}/client/action/reject-call": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] reject call",
+                "description": "Rejects the ringing incoming call (or the call with callId). Without a matching call the answer is `data.status: error` with `message: failed to reject call` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "reject-call",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: the id of the call that was rejected.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "callId": {
+                                                                    "type": "string",
+                                                                    "example": "00E61C7AAD3559F3AFC223D4E3FC1914"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/accept-call": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] accept call",
+                "description": "Accepts the ringing incoming call. Media starts after the call connected; audioUrl plays once, imageUrl is shown, videoUrl loops as the camera. hangupAfterSeconds, if given, ends the call that many seconds after it connects. Every media URL is fetched before the call is accepted, so an unusable URL fails the request instead of answering a call that then plays nothing. Errors come back as `data.status: error` with `message` and `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "accept-call",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    },
+                                    "video": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Accept as a video call and send a camera track"
+                                    },
+                                    "audioUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "wav, mp3 or ogg played once into the call, max 25 MB"
+                                    },
+                                    "imageUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "jpeg or png shown as the outgoing camera, max 25 MB"
+                                    },
+                                    "videoUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "mp4 (H.264) looped as the outgoing camera, max 25 MB"
+                                    },
+                                    "hangupAfterSeconds": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 300,
+                                        "description": "Hang up at the latest this many seconds after the call connects; omitted means the call stays up until someone ends it"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: the accepted call.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "call": {
+                                                                    "$ref": "#/components/schemas/call"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/end-call": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] end call",
+                "description": "Ends the active call (or the call with callId), whether it is still ringing or already connected. Without a matching call the answer is `data.status: error` with `message: failed to end call` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "end-call",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: the id of the call that was ended.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "callId": {
+                                                                    "type": "string",
+                                                                    "example": "00E61C7AAD3559F3AFC223D4E3FC1914"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/play-call-audio": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] play call audio",
+                "description": "Plays wav/mp3/ogg (max 25 MB) into the connected call; resolves after playback. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to play call audio` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "play-call-audio",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "audioUrl"
+                                ],
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    },
+                                    "audioUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "wav, mp3 or ogg played into the call, max 25 MB",
+                                        "example": "https://example.com/greeting.mp3"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: how long the clip played.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "durationSeconds": {
+                                                                    "type": "number",
+                                                                    "example": 12.5,
+                                                                    "description": "Length of the clip that was played, in seconds"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/show-call-image": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] show call image",
+                "description": "Shows a jpeg/png as the outgoing camera of the connected video call. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to show call image` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "show-call-image",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "imageUrl"
+                                ],
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    },
+                                    "imageUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "jpeg or png shown as the outgoing camera, max 25 MB",
+                                        "example": "https://example.com/card.png"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: an empty object.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {}
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/play-call-video": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] play call video",
+                "description": "Plays an mp4 (H.264) as the outgoing camera of the connected call; loop=false resolves when the clip ended. The call has to be connected — one that is still ringing has no media channel and answers `data.status: error` with `message: failed to play call video` and an `explanation`. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "play-call-video",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "videoUrl"
+                                ],
+                                "properties": {
+                                    "callId": {
+                                        "type": "string",
+                                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914",
+                                        "description": "The call to act on. Omit to use the instance's only active call."
+                                    },
+                                    "videoUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "mp4 (H.264) played as the outgoing camera, max 25 MB",
+                                        "example": "https://example.com/clip.mp4"
+                                    },
+                                    "loop": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Repeat the clip until the call ends instead of resolving when it ended"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: an empty object.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {}
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/client/action/start-call": {
+            "post": {
+                "tags": [
+                    "call"
+                ],
+                "summary": "[BETA] start call",
+                "description": "Places a voice or video call. Limited to 10 per minute and 100 per hour per instance; the slot is taken before the media URLs are fetched, so a bad audioUrl or videoUrl still spends one. With waitForAnswer (default true) the response tells whether the callee picked up within answerTimeout; on timeout the instance hangs up. Optional audioUrl/imageUrl/videoUrl play after the call was answered; hangupAfterSeconds ends the call and counts from the moment the call connects, not from this response, so a call can last up to the 10 second connection wait plus hangupAfterSeconds. Over the limit the answer is `data.status: error` with `message: too many calls`, an `explanation` and `retryAfter` in seconds. Note: This endpoint is currently in beta and may change without notice.",
+                "operationId": "start-call",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "chatId"
+                                ],
+                                "properties": {
+                                    "chatId": {
+                                        "type": "string",
+                                        "example": "41763070877@c.us",
+                                        "description": "The number to call, as `number@c.us` or `number@lid`"
+                                    },
+                                    "video": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Place a video call instead of a voice call"
+                                    },
+                                    "waitForAnswer": {
+                                        "type": "boolean",
+                                        "default": true,
+                                        "description": "Wait for the callee to pick up before answering the request"
+                                    },
+                                    "answerTimeout": {
+                                        "type": "integer",
+                                        "minimum": 5000,
+                                        "maximum": 45000,
+                                        "default": 30000,
+                                        "description": "How long to wait for the callee to pick up, in milliseconds (waitForAnswer only). Capped at 45000: the request blocks for that whole time, and a longer wait would outlive the HTTP connection."
+                                    },
+                                    "audioUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "wav, mp3 or ogg played once after the call was answered, max 25 MB"
+                                    },
+                                    "imageUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "Still image shown as the outgoing camera once the call connects; jpeg or png, max 25 MB"
+                                    },
+                                    "videoUrl": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "description": "mp4 (H.264) looped as the outgoing camera after the call was answered, max 25 MB"
+                                    },
+                                    "hangupAfterSeconds": {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 300,
+                                        "description": "Hang up this many seconds after the call connected"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request reached the instance. `data.status` reports whether the action was carried out; on error `data` carries `message` and `explanation`. Payload: the call plus whether it was answered.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "$ref": "#/components/schemas/requestStatus"
+                                        },
+                                        "data": {
+                                            "description": "The action's outcome. `status: success` carries the payload; `status: error` is an `actionError`.",
+                                            "oneOf": [
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "status": {
+                                                            "$ref": "#/components/schemas/actionStatus"
+                                                        },
+                                                        "instanceId": {
+                                                            "type": [
+                                                                "integer",
+                                                                "string"
+                                                            ],
+                                                            "example": "123"
+                                                        },
+                                                        "data": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "call": {
+                                                                    "$ref": "#/components/schemas/call"
+                                                                },
+                                                                "answered": {
+                                                                    "type": "boolean",
+                                                                    "description": "The callee picked up (waitForAnswer only)"
+                                                                },
+                                                                "timedOut": {
+                                                                    "type": "boolean",
+                                                                    "description": "answerTimeout elapsed and the instance hung the call up"
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "status"
+                                                    ]
+                                                },
+                                                {
+                                                    "$ref": "#/components/schemas/actionError"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — instance is not ready"
+                    },
+                    "422": {
+                        "description": "Validation error — invalid or missing request parameters",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/errorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
         "/instances/{id}/client/action/send-event-response": {
             "post": {
                 "tags": [
-                    "client"
+                    "message"
                 ],
                 "summary": "send event response",
                 "description": "Sends a response (RSVP) to a calendar event message.",
@@ -16795,7 +17795,7 @@
         "/instances/{id}/client/action/revoke-status-message": {
             "post": {
                 "tags": [
-                    "client"
+                    "story"
                 ],
                 "summary": "revoke status message",
                 "description": "Revokes (deletes) a previously sent status message.",
@@ -16949,7 +17949,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     },
                                     "note": {
                                         "type": "string",
@@ -17077,7 +18078,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Contact ID: `<number>@c.us` or `<lid>@lid`."
                                     }
                                 }
                             }
@@ -17829,7 +18831,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     }
                                 }
                             }
@@ -17950,7 +18953,8 @@
                                 ],
                                 "properties": {
                                     "chatId": {
-                                        "$ref": "#/components/schemas/chatId"
+                                        "$ref": "#/components/schemas/chatId",
+                                        "description": "Chat ID: `<number>@c.us` or `<lid>@lid` for a contact (both address the same chat), `<id>@g.us` for a group."
                                     },
                                     "duration": {
                                         "type": "integer",
@@ -18141,7 +19145,7 @@
         "/instances/{id}/client/action/get-business-profile": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] get business profile",
                 "description": "Retrieve a business profile. Defaults to the authenticated account. Only WhatsApp Business accounts expose a profile. Note: This endpoint is currently in beta and may change without notice.",
@@ -18301,7 +19305,7 @@
         "/instances/{id}/client/action/get-business-categories": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] get business categories",
                 "description": "List available business categories. Pass parentId to drill down; omit for top level. Note: This endpoint is currently in beta and may change without notice.",
@@ -18416,7 +19420,7 @@
         "/instances/{id}/client/action/set-business-profile": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] set business profile",
                 "description": "Update the authenticated business account's profile. Only provided fields are changed. Profile picture is managed separately. Note: This endpoint is currently in beta and may change without notice.",
@@ -18619,7 +19623,7 @@
         "/instances/{id}/client/action/get-quick-replies": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] get quick replies",
                 "description": "List all quick replies configured on the business account. Note: This endpoint is currently in beta and may change without notice.",
@@ -18724,7 +19728,7 @@
         "/instances/{id}/client/action/create-quick-reply": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] create quick reply",
                 "description": "Create a new quick reply. Returns the created quick reply with its generated id. Note: This endpoint is currently in beta and may change without notice.",
@@ -18854,7 +19858,7 @@
         "/instances/{id}/client/action/update-quick-reply": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] update quick reply",
                 "description": "Update an existing quick reply by id. Only provided fields are changed. Note: This endpoint is currently in beta and may change without notice.",
@@ -18986,7 +19990,7 @@
         "/instances/{id}/client/action/delete-quick-reply": {
             "post": {
                 "tags": [
-                    "client"
+                    "business"
                 ],
                 "summary": "[BETA] delete quick reply",
                 "description": "Delete a quick reply by id. Note: This endpoint is currently in beta and may change without notice.",
@@ -19136,6 +20140,12 @@
                     "webhook_events": {
                         "$ref": "#/components/schemas/events"
                     },
+                    "call_policy": {
+                        "$ref": "#/components/schemas/callPolicy"
+                    },
+                    "send_protection": {
+                        "$ref": "#/components/schemas/sendProtection"
+                    },
                     "is_trial": {
                         "type": "boolean",
                         "example": false
@@ -19160,8 +20170,17 @@
                                 "$ref": "#/components/schemas/events"
                             }
                         }
+                    },
+                    "call_policy": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/callPolicy"
+                            }
+                        ],
+                        "description": "On create, omitting it means no policy (ignore); on update, omitting it leaves the stored policy unchanged. `null` resets to ignore in both."
                     }
-                }
+                },
+                "description": "Send protection is managed on the instance page in your account, not through the API."
             },
             "instanceClientStatus": {
                 "type": "object",
@@ -19197,6 +20216,19 @@
                         "items": {
                             "$ref": "#/components/schemas/eventType"
                         }
+                    },
+                    "instanceCallPolicy": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/callPolicyNodeShape"
+                            }
+                        ],
+                        "description": "The call policy the instance runs with. Returned by `PUT /instances/{id}` only — `GET /instances/{id}/client/status` never carries it. Note the shape: camelCase (`audioUrl`, `videoUrl`, `hangupAfterSeconds`), not the snake_case one requests use."
+                    },
+                    "nodeReachable": {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Returned by `PUT /instances/{id}` only, and only as `false`: the update was stored but the running instance could not be reached to be told about it, so it keeps its previous settings until it reconnects. Absent whenever no such failure happened — including on every `GET /instances/{id}/client/status`, which never carries this field."
                     }
                 }
             },
@@ -19270,9 +20302,159 @@
                     }
                 }
             },
+            "callPolicy": {
+                "type": [
+                    "object",
+                    "null"
+                ],
+                "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+                "required": [
+                    "mode"
+                ],
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "example": "reject_with_message",
+                        "enum": [
+                            "ignore",
+                            "reject",
+                            "reject_with_message",
+                            "answer_and_play"
+                        ]
+                    },
+                    "message": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 1000,
+                        "example": "We do not take calls. Please send a message.",
+                        "description": "Text sent to the caller after rejecting (mode reject_with_message)"
+                    },
+                    "audio_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "wav, mp3 or ogg played into the call (mode answer_and_play), max 25 MB"
+                    },
+                    "video_url": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "mp4 (H.264) looped as the camera on video calls (mode answer_and_play), max 25 MB"
+                    },
+                    "hangup_after_seconds": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 300,
+                        "default": 30,
+                        "description": "Hang up at the latest this many seconds after the call connected (mode answer_and_play)"
+                    }
+                }
+            },
+            "callPolicyNodeShape": {
+                "type": "object",
+                "description": "The call policy as the instance itself runs it: the same policy as `callPolicy`, with camelCase keys. `{ \"mode\": \"ignore\" }` alone when no policy is stored; otherwise every key is present and the unused ones are `null`. Read-only — requests always use the snake_case `callPolicy`.",
+                "required": [
+                    "mode"
+                ],
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "example": "reject_with_message",
+                        "enum": [
+                            "ignore",
+                            "reject",
+                            "reject_with_message",
+                            "answer_and_play"
+                        ]
+                    },
+                    "message": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 1000,
+                        "example": "We do not take calls. Please send a message.",
+                        "description": "Text sent to the caller after rejecting (mode reject_with_message)"
+                    },
+                    "audioUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "wav, mp3 or ogg played into the call (mode answer_and_play), max 25 MB"
+                    },
+                    "videoUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "mp4 (H.264) looped as the camera on video calls (mode answer_and_play), max 25 MB"
+                    },
+                    "hangupAfterSeconds": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 300,
+                        "default": 30,
+                        "description": "Hang up at the latest this many seconds after the call connected (mode answer_and_play)"
+                    }
+                }
+            },
+            "callState": {
+                "type": "integer",
+                "example": 6,
+                "description": "The call's state, as the platform's own CallState enum — all fifteen members: 0 None, 1 Calling, 2 PreacceptReceived, 3 ReceivedCall (an incoming call is ringing), 4 AcceptSent, 5 AcceptReceived, 6 CallActive (connected), 7 CallActiveElseWhere (answered on another linked device), 8 ReceivedCallWithoutOffer, 9 Rejoining, 10 Link, 11 ConnectedLonely, 12 PreCalling (an outgoing call that is not registered yet), 13 CallStateEnding, 14 CallBCallStarting. In practice you will see 3, 6, 12 and 13; start-call with waitForAnswer false can report 12, and 7 reaches the call webhook. Treat any other value as one of the states above rather than as an error."
+            },
+            "call": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "example": "00E61C7AAD3559F3AFC223D4E3FC1914"
+                    },
+                    "from": {
+                        "type": "string",
+                        "example": "41763070877@c.us",
+                        "description": "The peer — the caller for an incoming call, the callee for an outgoing one"
+                    },
+                    "timestamp": {
+                        "type": "integer",
+                        "example": 1789138531
+                    },
+                    "isVideo": {
+                        "type": "boolean"
+                    },
+                    "isGroup": {
+                        "type": "boolean"
+                    },
+                    "fromMe": {
+                        "type": "boolean",
+                        "description": "true for calls placed by this instance"
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/callState"
+                    },
+                    "answered": {
+                        "type": "boolean",
+                        "description": "start-call only"
+                    },
+                    "timedOut": {
+                        "type": "boolean",
+                        "description": "start-call only: answerTimeout elapsed and the call was hung up"
+                    }
+                }
+            },
             "eventType": {
                 "type": "string",
                 "example": "message",
+                "description": "A webhook event. `call` fires when a call comes in or is placed. Its `data.call` is the raw call object — every field of the `call` schema (including `state`) plus `canHandleLocally`, `webClientShouldHandle` and `participants`; the action responses carry the `call` schema itself, and nothing more. The instance's `call_policy` is applied after the event went out. `call_ended` fires once the call is over, with `data` as `{ peer, outcome (Completed, Missed, Rejected, Canceled, AcceptedElsewhere, Failed or Unknown), duration (seconds), isVideo, fromMe, timestamp, messageId }`. `message`, `message_create` and `message_edit` carry the file in `data.media`, or — when the download failed — `{ status: \"error\", error, detail }`. `error` is temporary for `timed_out`, `timeout`, `queue_overflow`, `network_error`, `hash_mismatch`, `stage_not_downloadable`, `unknown` and any other text (an unexpected error), and final for `not_found`, `message_not_found`, `missing_enc_filehash`, `no_media_data` and `non_chat_jid`. With webhook media mode `url` that object stays in `data.media`; only a file is replaced by `data.media_url`. `media_download_retry` (opt-in) fires once for an incoming media message whose download failed for a temporary reason: the download is tried again 2, 10, 60, 360 and 1440 minutes after the failure. `data.message` is the message from the original event and `data.media` the file — or `{ status: \"error\", error, detail, final: true }` once every attempt failed or a final reason came back — and `data.retry` is `{ outcome (delivered or failed), attempts, firstFailedAt, firstError, originalEvent }`. Nothing is retried for your own messages, with media mode `none`, or while no webhook listens to `media_download_retry`.",
                 "enum": [
                     "message",
                     "loading_screen",
@@ -19298,7 +20480,9 @@
                     "community_deactivated",
                     "change_state",
                     "call",
+                    "call_ended",
                     "vote_update",
+                    "media_download_retry",
                     "presence_update"
                 ]
             },
@@ -19518,6 +20702,91 @@
                 "required": [
                     "status"
                 ]
+            },
+            "sendProtection": {
+                "type": "object",
+                "description": "Send protection of this instance. Read-only: the switch is on the instance page in your account. While enabled, the instance sends one message at a time with a short pause, and conversations with recipients who have never written to this account are limited per hour and per day. A send over a limit is answered with HTTP 429 and a Retry-After header; nothing is sent. A fire-and-forget send is accepted with 202 and a refusal is read from GET /instances/{id}/request/{reference}.",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "disableable": {
+                        "type": "boolean",
+                        "description": "false on trial instances, where the protection is always on.",
+                        "example": true
+                    }
+                }
+            },
+            "sendProtectionRefused": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "reason",
+                    "retryAfter",
+                    "message"
+                ],
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "example": "error"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "enum": [
+                            "send_paced",
+                            "new_conversation_budget"
+                        ],
+                        "description": "send_paced: too many sends were waiting for this instance. new_conversation_budget: the hourly or daily limit for new conversations is reached."
+                    },
+                    "retryAfter": {
+                        "type": "integer",
+                        "description": "Seconds until the send can be retried. Also sent as the Retry-After header.",
+                        "example": 12840
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Send protection: the limit for new conversations is reached. Retry after the given number of seconds."
+                    },
+                    "explanation": {
+                        "type": "string"
+                    },
+                    "next_steps": {
+                        "type": "string"
+                    },
+                    "links": {
+                        "type": "object",
+                        "properties": {
+                            "self": {
+                                "type": "string"
+                            },
+                            "settings": {
+                                "type": "string",
+                                "description": "The instance page where the protection can be reviewed."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "responses": {
+            "sendProtectionRefused": {
+                "description": "Refused by the instance's send protection. Nothing was sent; retry after the given number of seconds. Integrations that already handle 429 need no change.",
+                "headers": {
+                    "Retry-After": {
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "Seconds until the send can be retried."
+                    }
+                },
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/sendProtectionRefused"
+                        }
+                    }
+                }
             }
         }
     }

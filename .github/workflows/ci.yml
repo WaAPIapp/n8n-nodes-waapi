@@ -7,92 +7,79 @@ on:
     branches: [main]
 
 jobs:
+  # The development toolchain needs Node 22: n8n-workflow 2.x pulls in
+  # isolated-vm, a native module that only builds on Node >= 22, so `npm ci`
+  # fails on anything older. Building, testing and linting therefore run on 22.
+  # What the published package supports is checked separately, on the built
+  # output, in the `load` job below.
   check:
+    name: build and test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [18, 20, 22]
-
-    name: node ${{ matrix.node }}
-
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 22
 
       - run: npm ci
 
       - run: npm run build
 
-      # `tsc` is incremental, and a build that emits nothing still exits 0. The
-      # entry points n8n loads are therefore checked for existence rather than
-      # inferred from the build succeeding -- a silent empty dist has happened
-      # here once already.
-      # Existence is not enough. n8n does not import whatever a file exports --
-      # it derives the export name from the file name, as
-      # `path.parse(sourcePath).name.split(".")[0]`, and fails if that exact
-      # name is missing. Renaming Waapi.node.ts without renaming the class
-      # shipped three unloadable releases, and n8n's only message for it is
-      # "The specified package could not be loaded".
-      - name: Check n8n can find the classes it will look for
-        run: |
-          node -e '
-            const pkg = require("./package.json");
-            const fs = require("fs");
-            const path = require("path");
-            const problems = [];
-            for (const rel of [...pkg.n8n.nodes, ...pkg.n8n.credentials]) {
-              if (!fs.existsSync(rel)) { problems.push(rel + ": missing"); continue; }
-              const expected = path.parse(rel).name.split(".")[0];
-              const mod = require("./" + rel);
-              if (typeof mod[expected] !== "function") {
-                problems.push(rel + ": expects class " + expected + ", exports " + Object.keys(mod).join(", "));
-                continue;
-              }
-              new mod[expected]();
-            }
-            if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
-            console.log("Every entry point exports the class n8n looks for.");
-          '
+      - name: Check n8n can load the build with the current n8n-workflow
+        run: node scripts/check-load.js
 
-      # The node is loaded by whatever n8n-workflow the host n8n ships, not by
-      # the one in devDependencies. A value imported from it that only exists in
-      # recent versions therefore breaks loading on older installations, with
-      # n8n reporting nothing more useful than "The specified package could not
-      # be loaded" -- which is exactly what reached a user in 1.7.3.
-      - name: Load the built node against an old n8n-workflow
-        run: |
-          npm install --no-save --force n8n-workflow@1.48.0
-          node -e '
-            const m = require("./dist/nodes/WaAPI/Waapi.node.js");
-            const d = new m.Waapi().description;
-            if (!Array.isArray(d.inputs) || d.inputs[0] !== "main") {
-              throw new Error("inputs is " + JSON.stringify(d.inputs));
-            }
-            if (!Array.isArray(d.properties) || d.properties.length < 400) {
-              throw new Error("properties: " + (d.properties || []).length);
-            }
-            console.log("Loads on n8n-workflow 1.48.0 with", d.properties.length, "properties.");
-          '
-
+      # Before anything replaces n8n-workflow: ts-jest compiles the sources
+      # against the installed typings, and the old version lacks
+      # NodeConnectionTypes and usableAsTool.
       - run: npm test
 
-  # Separate from the matrix on purpose: eslint-plugin-n8n-nodes-base and
-  # jsonc-eslint-parser require Node 20 or newer, and ESLint crashes loading the
-  # config below that. That is a constraint on the tooling, not on the published
-  # package -- which is a class and a JSON file and runs wherever n8n does -- so
-  # it does not belong in the matrix that states what the package supports.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+
+  # The package is a class and a JSON file. It declares Node >= 18.10 and runs
+  # inside whatever n8n the user hosts, with that n8n's n8n-workflow. This job
+  # loads exactly the built output on each Node version, against an old
+  # n8n-workflow, without installing the development dependencies.
+  load:
+    name: load on node ${{ matrix.node }}
+    needs: check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - name: Install the old n8n-workflow outside the project
+        run: npm install --prefix "$RUNNER_TEMP/host" --no-save --no-package-lock n8n-workflow@1.48.0
+
+      - name: Load the built node against n8n-workflow 1.48.0
+        run: NODE_PATH="$RUNNER_TEMP/host/node_modules" node scripts/check-load.js
+
+  # eslint-plugin-n8n-nodes-base needs Node >= 20.15, and `npm ci` needs 22 for
+  # the reason above.
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm ci
 

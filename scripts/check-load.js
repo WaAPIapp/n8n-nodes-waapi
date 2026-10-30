@@ -58,18 +58,9 @@ if (
   process.exit(1);
 }
 
-// n8n-workflow 2.x does not export ./package.json, so its version is read
-// from the file next to the resolved entry.
-let dir = path.dirname(require.resolve("n8n-workflow"));
-while (
-  !fs.existsSync(path.join(dir, "package.json")) &&
-  dir !== path.dirname(dir)
-) {
-  dir = path.dirname(dir);
-}
-const workflowVersion = JSON.parse(
-  fs.readFileSync(path.join(dir, "package.json"), "utf8"),
-).version;
+// Which n8n-workflow was actually loaded: a check that silently resolves the
+// devDependency instead of the old version proves nothing.
+const workflowVersion = require("n8n-workflow/package.json").version;
 
 console.log(
   `Node ${process.version}, n8n-workflow ${workflowVersion}: every entry point exports the class n8n looks for; ${description.properties.length} properties.`,

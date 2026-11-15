@@ -74,6 +74,11 @@
         "name": "Webhooks",
         "value": "Webhooks",
         "description": "Operations related to webhook subscriptions (used by Zapier, Make, n8n and direct API clients)."
+      },
+      {
+        "name": "Otp",
+        "value": "Otp",
+        "description": "Verify that an end user controls a messenger account, without sending them an SMS. The user opens the link from `create-otp-request`, which pre-fills a message containing a short keyword, and sends it to your instance's number. The instance answers with a 6-digit code, the user types the code into your app, and you check it with `verify-otp-code`. The end user always writes first: the API never sends an unsolicited code.\n\n## Two modes\n\n- **register** (no `identity` in the request): the first time. A successful verification returns an `identity` for the account that wrote in. Store it with your user.\n- **check** (`identity` in the request): the user already has an identity with you. Only the account behind that identity can pass; anybody else gets `sender_mismatch`.\n\n## Flow\n\n1. `POST /instances/{id}/otp` returns `request_id`, `token`, `message_text` and `link`. Show the link or a QR code of it. The request is valid for 10 minutes.\n2. The user sends the pre-filled message. The instance replies with the code (valid 5 minutes, single use) and fires `otp_code_sent`.\n3. `POST /instances/{id}/otp/{requestId}/verify` with the code the user typed. `GET /instances/{id}/otp/{requestId}` shows the status at any time, for polling or after a missed webhook.\n4. Subscribe to `otp_code_sent`, `otp_verified`, `otp_sender_mismatch` and `otp_failed` for push updates. Like every event they reach the instance's `webhook_url` when listed in its `webhook_events`, and every webhook subscription that listens to them.\n\n## What this proves, and what it does not\n\n- **Security level:** comparable to SMS two-factor authentication. Whoever takes over the messenger account passes the check, exactly as whoever takes over a phone number passes an SMS check. It is a good fit for sign-up and login confirmation, not for protecting high-value operations on its own.\n- **Trust on first use:** the registration step trusts whoever completes it first. The identity returned at registration is only as reliable as that moment.\n- **Keep a fallback:** offer backup codes or e-mail recovery. A user who loses the messenger account cannot pass a check any more.\n- **Use a dedicated instance:** codes are replies sent by the instance and queue behind the instance's other sends. Do not share the instance with bulk messaging, or codes arrive late.\n- **The identity is a pseudonym, not a secret:** it is derived per customer account (the same person has a different identity with each of your accounts), looks like `v1_` followed by 52 characters, and is stable for the same messenger account. Store it with the user, like a user id. Anybody who knows it can ask for a check against it, but cannot pass one without controlling the messenger account.\n- **`phone` is not guaranteed and never a key:** the verify response may carry the sender's phone number as `phone`, or `null` when it is not known. Never use it to identify a user; use `identity`.\n- **A new messenger account means registering again:** a user who moves to a new account has a new identity. Let them re-register through your fallback.\n\n## Reply texts\n\nThe instance answers in German or English, picked by the request's `locale`: \"Your code is 482913. Valid for 5 minutes. Never share this code — not even with us.\", with `app_name` and a colon in front when the request has one. A sender whose number does not belong to the expected account gets \"This account is not linked.\", at most once an hour.\n\nBoth texts can be replaced per instance in your account (the Verification Codes card); the API cannot change them. An own text is sent as written, whatever the request's `locale`:\n\n- `{code}` exactly once. `{minutes}` (how long the code is valid) and `{app_name}` (from the request, empty without one) at most once each.\n- At most 300 characters, at least 10 of them your own, and at least 3 letters directly before or after `{code}`.\n- `{code}` cannot be part of a link or an e-mail address.\n- The not-linked hint can also be switched off: a sender whose number does not belong to the expected account then gets no reply at all.\n- An empty field means the built-in text again.\n\n## Limits\n\n- Per sender and instance: 3 codes per 10 minutes and 10 per day.\n- Per instance: 120 requests per hour. Per customer account: 1000 requests per hour. Over either, `POST /instances/{id}/otp` answers 429 `rate_limited` with `retryInSeconds` and a `Retry-After` header.\n- Per request: at most 3 codes (a further message with the keyword gets no reply), and 5 wrong attempts, after which the request is `locked`. Per identity: 10 wrong attempts in 24 hours, which also locks it. `failed` means only that the code could not be sent.\n\n## Availability\n\nVerification is switched on per instance in your account; it cannot be changed through the API. The instance's `otp.enabled` shows the state. A switched-off instance answers 409 `otp_disabled`. An instance that is offline or cannot run verification right now answers 503 `instance_not_ready`."
       }
     ],
     "default": ""
@@ -212,6 +217,58 @@
           "request": {
             "method": "DELETE",
             "url": "=/instances/{{$parameter[\"id\"]}}/webhooks/{{$parameter[\"subscriptionId\"]}}"
+          }
+        }
+      }
+    ],
+    "default": ""
+  },
+  {
+    "displayName": "Operation",
+    "name": "operation",
+    "type": "options",
+    "noDataExpression": true,
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ]
+      }
+    },
+    "options": [
+      {
+        "name": "Create Otp Request",
+        "value": "Create Otp Request",
+        "action": "create otp request",
+        "description": "Start a verification. Returns a keyword and a link that opens a pre-filled message to the instance's number; the end user sends it and receives the code. Without `identity` the request registers a new account (mode `register`); with an `identity` returned earlier it checks that the same account answers (mode `check`). The request is valid for 10 minutes. Needs the `update` ability.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/otp"
+          }
+        }
+      },
+      {
+        "name": "Get Otp Request",
+        "value": "Get Otp Request",
+        "action": "get otp request",
+        "description": "Read the status of a verification request. The keyword, message text and link are not repeated here. Needs the `read` ability.",
+        "routing": {
+          "request": {
+            "method": "GET",
+            "url": "=/instances/{{$parameter[\"id\"]}}/otp/{{$parameter[\"requestId\"]}}"
+          }
+        }
+      },
+      {
+        "name": "Verify Otp Code",
+        "value": "Verify Otp Code",
+        "action": "verify otp code",
+        "description": "Check the code the end user typed. A correct code verifies the request once; a second try with the same code answers `already_used`. A wrong code counts as an attempt (5 per request, 10 per identity per 24 hours). A failed verification is a 422 with `data.verified: false` and a `reason`. Needs the `update` ability.",
+        "routing": {
+          "request": {
+            "method": "POST",
+            "url": "=/instances/{{$parameter[\"id\"]}}/otp/{{$parameter[\"requestId\"]}}/verify"
           }
         }
       }
@@ -2108,9 +2165,15 @@
     "default": {
       "mode": "reject_with_message",
       "message": "We do not take calls. Please send a message.",
-      "hangup_after_seconds": 30
+      "hangup_after_seconds": 30,
+      "agent": {
+        "type": "sip",
+        "sip_uri": "sip:agent@sip.example.com",
+        "websocket_url": "wss://agent.example.com/stream",
+        "audio_format": "mulaw_8000"
+      }
     },
-    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call shows in the instance's status log as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable`, `agent_rejected` or `video_unsupported`). Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
     "routing": {
       "request": {
         "body": {
@@ -2255,9 +2318,15 @@
     "default": {
       "mode": "reject_with_message",
       "message": "We do not take calls. Please send a message.",
-      "hangup_after_seconds": 30
+      "hangup_after_seconds": 30,
+      "agent": {
+        "type": "sip",
+        "sip_uri": "sip:agent@sip.example.com",
+        "websocket_url": "wss://agent.example.com/stream",
+        "audio_format": "mulaw_8000"
+      }
     },
-    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call shows in the instance's status log as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable`, `agent_rejected` or `video_unsupported`). Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
     "routing": {
       "request": {
         "body": {
@@ -2380,7 +2449,7 @@
     "name": "url",
     "type": "string",
     "default": "https://hooks.zapier.com/hooks/standard/123456/abc123/",
-    "description": "The URL that will receive event payloads.",
+    "description": "The URL that will receive event payloads. Must be reachable from the internet: localhost, private network addresses (127.x, 10.x, 172.16-31.x, 192.168.x) and local names (e.g. a docker service name) are refused with 422.",
     "routing": {
       "request": {
         "body": {
@@ -2553,6 +2622,261 @@
         ],
         "operation": [
           "Delete Webhook Subscription"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/otp",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Create Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Create Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Identity",
+    "name": "identity",
+    "default": "v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "description": "An identity returned by a previous verification. Present: check mode. Absent: register mode. A pseudonym, not a secret; format `v1_` plus 52 characters of A-Z and 2-7.",
+    "routing": {
+      "request": {
+        "body": {
+          "identity": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Create Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Locale",
+    "name": "locale",
+    "type": "options",
+    "default": "de",
+    "description": "Language of the built-in texts: the reply that carries the code and the not-linked hint. Default `en`. A text the instance has replaced is sent as written.",
+    "options": [
+      {
+        "name": "De",
+        "value": "de"
+      },
+      {
+        "name": "En",
+        "value": "en"
+      },
+      {
+        "name": "",
+        "value": null
+      }
+    ],
+    "routing": {
+      "request": {
+        "body": {
+          "locale": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Create Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "App Name",
+    "name": "app_name",
+    "description": "Your product name. Shown in front of the code in the built-in reply; in an instance's own reply text it fills `{app_name}`. Letters, digits, spaces and `. , & ' -` only.",
+    "routing": {
+      "request": {
+        "body": {
+          "app_name": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Create Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "GET /instances/{id}/otp/{requestId}",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Get Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Get Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Request Id",
+    "name": "requestId",
+    "required": true,
+    "description": "Verification request ID, as returned by create-otp-request",
+    "default": "",
+    "type": "string",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Get Otp Request"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "POST /instances/{id}/otp/{requestId}/verify",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Verify Otp Code"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Verify Otp Code"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Request Id",
+    "name": "requestId",
+    "required": true,
+    "description": "Verification request ID, as returned by create-otp-request",
+    "default": "",
+    "type": "string",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Verify Otp Code"
+        ]
+      }
+    }
+  },
+  {
+    "required": true,
+    "displayName": "Code",
+    "name": "code",
+    "type": "string",
+    "default": "482913",
+    "description": "The 6-digit code the user typed.",
+    "routing": {
+      "request": {
+        "body": {
+          "code": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Otp"
+        ],
+        "operation": [
+          "Verify Otp Code"
         ]
       }
     }

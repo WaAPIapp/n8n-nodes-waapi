@@ -50,6 +50,25 @@ describe('WaAPI node', () => {
 	it('points at the production API', () => {
 		expect(description.requestDefaults?.baseURL).toBe('https://waapi.app/api/v1');
 	});
+
+	it('accepts the voice-agent call policy on instance create and update', () => {
+		for (const operation of ['Create Instance', 'Update Instance']) {
+			const policy = properties.find(
+				(p) =>
+					p.name === 'call_policy' &&
+					(p.displayOptions?.show?.operation as string[] | undefined)?.includes(operation),
+			);
+			expect(policy).toBeDefined();
+			// The parameter is generated as one JSON value; its description is the
+			// spec's, and names the mode and the agent fields the API accepts.
+			expect(policy?.description).toContain('connect_agent');
+			const agent = (policy?.default as { agent?: Record<string, unknown> }).agent;
+			expect(agent).toBeDefined();
+			for (const field of ['type', 'sip_uri', 'websocket_url', 'audio_format']) {
+				expect(agent).toHaveProperty(field);
+			}
+		}
+	});
 });
 
 // n8n does not import whatever a node file exports. It derives the export name

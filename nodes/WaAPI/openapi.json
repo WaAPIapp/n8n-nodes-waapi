@@ -71,6 +71,10 @@
         {
             "name": "webhooks",
             "description": "Operations related to webhook subscriptions (used by Zapier, Make, n8n and direct API clients)."
+        },
+        {
+            "name": "otp",
+            "description": "Verify that an end user controls a messenger account, without sending them an SMS. The user opens the link from `create-otp-request`, which pre-fills a message containing a short keyword, and sends it to your instance's number. The instance answers with a 6-digit code, the user types the code into your app, and you check it with `verify-otp-code`. The end user always writes first: the API never sends an unsolicited code.\n\n## Two modes\n\n- **register** (no `identity` in the request): the first time. A successful verification returns an `identity` for the account that wrote in. Store it with your user.\n- **check** (`identity` in the request): the user already has an identity with you. Only the account behind that identity can pass; anybody else gets `sender_mismatch`.\n\n## Flow\n\n1. `POST /instances/{id}/otp` returns `request_id`, `token`, `message_text` and `link`. Show the link or a QR code of it. The request is valid for 10 minutes.\n2. The user sends the pre-filled message. The instance replies with the code (valid 5 minutes, single use) and fires `otp_code_sent`.\n3. `POST /instances/{id}/otp/{requestId}/verify` with the code the user typed. `GET /instances/{id}/otp/{requestId}` shows the status at any time, for polling or after a missed webhook.\n4. Subscribe to `otp_code_sent`, `otp_verified`, `otp_sender_mismatch` and `otp_failed` for push updates. Like every event they reach the instance's `webhook_url` when listed in its `webhook_events`, and every webhook subscription that listens to them.\n\n## What this proves, and what it does not\n\n- **Security level:** comparable to SMS two-factor authentication. Whoever takes over the messenger account passes the check, exactly as whoever takes over a phone number passes an SMS check. It is a good fit for sign-up and login confirmation, not for protecting high-value operations on its own.\n- **Trust on first use:** the registration step trusts whoever completes it first. The identity returned at registration is only as reliable as that moment.\n- **Keep a fallback:** offer backup codes or e-mail recovery. A user who loses the messenger account cannot pass a check any more.\n- **Use a dedicated instance:** codes are replies sent by the instance and queue behind the instance's other sends. Do not share the instance with bulk messaging, or codes arrive late.\n- **The identity is a pseudonym, not a secret:** it is derived per customer account (the same person has a different identity with each of your accounts), looks like `v1_` followed by 52 characters, and is stable for the same messenger account. Store it with the user, like a user id. Anybody who knows it can ask for a check against it, but cannot pass one without controlling the messenger account.\n- **`phone` is not guaranteed and never a key:** the verify response may carry the sender's phone number as `phone`, or `null` when it is not known. Never use it to identify a user; use `identity`.\n- **A new messenger account means registering again:** a user who moves to a new account has a new identity. Let them re-register through your fallback.\n\n## Reply texts\n\nThe instance answers in German or English, picked by the request's `locale`: \"Your code is 482913. Valid for 5 minutes. Never share this code — not even with us.\", with `app_name` and a colon in front when the request has one. A sender whose number does not belong to the expected account gets \"This account is not linked.\", at most once an hour.\n\nBoth texts can be replaced per instance in your account (the Verification Codes card); the API cannot change them. An own text is sent as written, whatever the request's `locale`:\n\n- `{code}` exactly once. `{minutes}` (how long the code is valid) and `{app_name}` (from the request, empty without one) at most once each.\n- At most 300 characters, at least 10 of them your own, and at least 3 letters directly before or after `{code}`.\n- `{code}` cannot be part of a link or an e-mail address.\n- The not-linked hint can also be switched off: a sender whose number does not belong to the expected account then gets no reply at all.\n- An empty field means the built-in text again.\n\n## Limits\n\n- Per sender and instance: 3 codes per 10 minutes and 10 per day.\n- Per instance: 120 requests per hour. Per customer account: 1000 requests per hour. Over either, `POST /instances/{id}/otp` answers 429 `rate_limited` with `retryInSeconds` and a `Retry-After` header.\n- Per request: at most 3 codes (a further message with the keyword gets no reply), and 5 wrong attempts, after which the request is `locked`. Per identity: 10 wrong attempts in 24 hours, which also locks it. `failed` means only that the code could not be sent.\n\n## Availability\n\nVerification is switched on per instance in your account; it cannot be changed through the API. The instance's `otp.enabled` shows the state. A switched-off instance answers 409 `otp_disabled`. An instance that is offline or cannot run verification right now answers 503 `instance_not_ready`."
         }
     ],
     "paths": {
@@ -686,6 +690,265 @@
                     },
                     "429": {
                         "description": "Too many requests — rate limit exceeded"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/otp": {
+            "post": {
+                "tags": [
+                    "otp"
+                ],
+                "summary": "create otp request",
+                "operationId": "create-otp-request",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "description": "Start a verification. Returns a keyword and a link that opens a pre-filled message to the instance's number; the end user sends it and receives the code. Without `identity` the request registers a new account (mode `register`); with an `identity` returned earlier it checks that the same account answers (mode `check`). The request is valid for 10 minutes. Needs the `update` ability.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/otpRequestCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "The created verification request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/otpRequest"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance or verification request does not exist or does not belong to you"
+                    },
+                    "409": {
+                        "description": "Conflict — `otp_disabled`: verification is switched off for this instance",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/otpError"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error. `invalid_identity` (flat error) when `identity` is not a value returned by this API; the usual validation envelope for `locale` and `app_name`.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "$ref": "#/components/schemas/otpError"
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/errorResponse"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests — `rate_limited`: the instance or customer budget is spent. Retry after the `Retry-After` header (seconds).",
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds until a new request may be made.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/otpError"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service unavailable — `instance_not_ready`: the instance is offline, restarting or cannot run verification right now",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/otpError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}/otp/{requestId}": {
+            "get": {
+                "tags": [
+                    "otp"
+                ],
+                "summary": "get otp request",
+                "operationId": "get-otp-request",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "description": "Verification request ID, as returned by create-otp-request",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "description": "Read the status of a verification request. The keyword, message text and link are not repeated here. Needs the `read` ability.",
+                "responses": {
+                    "200": {
+                        "description": "The verification request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/otpRequestStatus"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions"
+                    },
+                    "404": {
+                        "description": "Not found — instance or verification request does not exist or does not belong to you"
+                    }
+                }
+            }
+        },
+        "/instances/{id}/otp/{requestId}/verify": {
+            "post": {
+                "tags": [
+                    "otp"
+                ],
+                "summary": "verify otp code",
+                "operationId": "verify-otp-code",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Instance ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "requestId",
+                        "in": "path",
+                        "description": "Verification request ID, as returned by create-otp-request",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "description": "Check the code the end user typed. A correct code verifies the request once; a second try with the same code answers `already_used`. A wrong code counts as an attempt (5 per request, 10 per identity per 24 hours). A failed verification is a 422 with `data.verified: false` and a `reason`. Needs the `update` ability.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/otpVerifyRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The code is correct",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/otpVerified"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized — invalid or missing bearer token"
+                    },
+                    "403": {
+                        "description": "Forbidden — insufficient permissions or account blocked"
+                    },
+                    "404": {
+                        "description": "Not found — instance or verification request does not exist or does not belong to you"
+                    },
+                    "422": {
+                        "description": "The code was not accepted (`data.verified` is false, with a `reason`), or the body failed validation (`code` must be exactly 6 digits).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/otpRejected"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "$ref": "#/components/schemas/errorResponse"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -20149,6 +20412,28 @@
                     "is_trial": {
                         "type": "boolean",
                         "example": false
+                    },
+                    "otp": {
+                        "type": "object",
+                        "readOnly": true,
+                        "description": "Read-only. Verification is switched on per instance in your account and cannot be changed through the API.",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "example": false
+                            }
+                        }
+                    },
+                    "frontdesk": {
+                        "type": "object",
+                        "readOnly": true,
+                        "description": "Read-only. Frontdesk is switched on per instance in your account and cannot be changed through the API.",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "example": false
+                            }
+                        }
                     }
                 }
             },
@@ -20164,6 +20449,7 @@
                         "properties": {
                             "url": {
                                 "type": "string",
+                                "description": "Must be reachable from the internet: localhost, private network addresses (127.x, 10.x, 172.16-31.x, 192.168.x) and local names (e.g. a docker service name) are refused with 422.",
                                 "example": "https://my.url.com/webhook/handler"
                             },
                             "events": {
@@ -20224,6 +20510,17 @@
                             }
                         ],
                         "description": "The call policy the instance runs with. Returned by `PUT /instances/{id}` only — `GET /instances/{id}/client/status` never carries it. Note the shape: camelCase (`audioUrl`, `videoUrl`, `hangupAfterSeconds`), not the snake_case one requests use."
+                    },
+                    "instanceOtp": {
+                        "type": "object",
+                        "readOnly": true,
+                        "description": "Whether verification (see the `otp` tag) is switched on in the running instance. Read-only: it is switched on the instance page in your account, and `PUT /instances/{id}` ignores it. Present whenever the running instance answered; absent in the fallback answer (`instanceStatus: booting`) given when it could not be reached.",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "example": false
+                            }
+                        }
                     },
                     "nodeReachable": {
                         "type": "boolean",
@@ -20307,7 +20604,7 @@
                     "object",
                     "null"
                 ],
-                "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Two requirements the schema cannot express: reject_with_message requires message, and answer_and_play requires audio_url or video_url — without them the request is answered with a 422.",
+                "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call shows in the instance's status log as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable`, `agent_rejected` or `video_unsupported`). Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
                 "required": [
                     "mode"
                 ],
@@ -20319,8 +20616,10 @@
                             "ignore",
                             "reject",
                             "reject_with_message",
-                            "answer_and_play"
-                        ]
+                            "answer_and_play",
+                            "connect_agent"
+                        ],
+                        "description": "How incoming calls are handled. `connect_agent` answers the call and connects it to your voice agent (`agent`)."
                     },
                     "message": {
                         "type": [
@@ -20353,12 +20652,85 @@
                         "maximum": 300,
                         "default": 30,
                         "description": "Hang up at the latest this many seconds after the call connected (mode answer_and_play)"
+                    },
+                    "agent": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "The voice agent the call is connected to (mode connect_agent). `null` for every other mode.",
+                        "required": [
+                            "type"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "sip",
+                                    "websocket",
+                                    "websocket_inbound"
+                                ],
+                                "example": "sip",
+                                "description": "`sip`: the call is dialled to your agent's SIP address. `websocket`: the call audio is streamed to your `websocket_url` (Twilio Media Streams format). `websocket_inbound`: your agent connects to the stream address sent with the `call_stream_ready` webhook event."
+                            },
+                            "sip_uri": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 512,
+                                "pattern": "^sips?:[^@\\s]+@[^@\\s]+$",
+                                "example": "sip:agent@sip.example.com",
+                                "description": "`sip:` or `sips:` address of the voice agent (type sip, required there)."
+                            },
+                            "sip_username": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 128,
+                                "description": "SIP username, if your agent asks for authentication (type sip)."
+                            },
+                            "sip_password": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 256,
+                                "writeOnly": true,
+                                "description": "SIP password (type sip). Stored encrypted and never returned — responses carry `null` and `has_sip_password`. Omit it on an update to keep the stored password; it is kept only while `sip_uri` stays identical, so a changed `sip_uri` needs the password again, and switching to another type discards it."
+                            },
+                            "has_sip_password": {
+                                "type": "boolean",
+                                "readOnly": true,
+                                "description": "Whether a SIP password is stored. Responses only; ignored in requests."
+                            },
+                            "websocket_url": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 2048,
+                                "format": "uri",
+                                "example": "wss://agent.example.com/stream",
+                                "description": "Public `wss://` URL that receives the call audio (type websocket, required there). localhost and private network addresses are refused."
+                            },
+                            "audio_format": {
+                                "type": "string",
+                                "enum": [
+                                    "mulaw_8000",
+                                    "pcm_16000"
+                                ],
+                                "default": "mulaw_8000",
+                                "description": "Audio encoding of the stream (types websocket and websocket_inbound): 8 kHz μ-law or 16 kHz 16-bit PCM."
+                            }
+                        }
                     }
                 }
             },
             "callPolicyNodeShape": {
                 "type": "object",
-                "description": "The call policy as the instance itself runs it: the same policy as `callPolicy`, with camelCase keys. `{ \"mode\": \"ignore\" }` alone when no policy is stored; otherwise every key is present and the unused ones are `null`. Read-only — requests always use the snake_case `callPolicy`.",
+                "description": "The call policy as the instance itself runs it: the same policy as `callPolicy`, with camelCase keys. `{ \"mode\": \"ignore\" }` alone when no policy is stored, and `{ \"mode\": \"connect_agent\" }` alone for a voice agent (the agent's address and credentials never reach the instance); otherwise every key is present and the unused ones are `null`. Read-only — requests always use the snake_case `callPolicy`.",
                 "required": [
                     "mode"
                 ],
@@ -20370,7 +20742,8 @@
                             "ignore",
                             "reject",
                             "reject_with_message",
-                            "answer_and_play"
+                            "answer_and_play",
+                            "connect_agent"
                         ]
                     },
                     "message": {
@@ -20454,7 +20827,7 @@
             "eventType": {
                 "type": "string",
                 "example": "message",
-                "description": "A webhook event. `call` fires when a call comes in or is placed. Its `data.call` is the raw call object — every field of the `call` schema (including `state`) plus `canHandleLocally`, `webClientShouldHandle` and `participants`; the action responses carry the `call` schema itself, and nothing more. The instance's `call_policy` is applied after the event went out. `call_ended` fires once the call is over, with `data` as `{ peer, outcome (Completed, Missed, Rejected, Canceled, AcceptedElsewhere, Failed or Unknown), duration (seconds), isVideo, fromMe, timestamp, messageId }`. `message`, `message_create` and `message_edit` carry the file in `data.media`, or — when the download failed — `{ status: \"error\", error, detail }`. `error` is temporary for `timed_out`, `timeout`, `queue_overflow`, `network_error`, `hash_mismatch`, `stage_not_downloadable`, `unknown` and any other text (an unexpected error), and final for `not_found`, `message_not_found`, `missing_enc_filehash`, `no_media_data` and `non_chat_jid`. With webhook media mode `url` that object stays in `data.media`; only a file is replaced by `data.media_url`. `media_download_retry` (opt-in) fires once for an incoming media message whose download failed for a temporary reason: the download is tried again 2, 10, 60, 360 and 1440 minutes after the failure; an attempt the instance cannot answer (offline, restarting) is postponed and does not count, and 1450 minutes after the failure the retry ends either way. `data.message` is the message from the original event and `data.media` the file — or `{ status: \"error\", error, detail, final: true }` once every attempt failed or a final reason came back; there `error` is the code of the last attempt — one of the reasons above, `no_media` for a message without a medium, or `unknown` with the text in `detail` — or, when no attempt reached the instance, the `error` of the original event — and `data.retry` is `{ outcome (delivered or failed), attempts, firstFailedAt, firstError, originalEvent }`. A file that reaches you for the same message in another event (`message` and `message_create`) cancels the retry. Nothing is retried for your own messages, or unless a webhook listens to `media_download_retry` (with media mode `base64` or `url`) or to `media_downloaded` (any media mode). `media_downloaded` (opt-in) fires once for an incoming media message as soon as its file is available — on the first download or after a retry — with `data.message` only; fetch the file with download-media. A repeat for the same message id is rare but possible (an edit of the message a day later, or a platform update in between) and safe to ignore. It works with every media mode, also `none`, and needs `message`, `message_create` or `message_edit` subscribed on the instance, since those are the events that download media. It does not fire when the download fails for good (that is `media_download_retry` with `final: true`), nor for your own messages.",
+                "description": "A webhook event. `call` fires when a call comes in or is placed. Its `data.call` is the raw call object — every field of the `call` schema (including `state`) plus `canHandleLocally`, `webClientShouldHandle` and `participants`; the action responses carry the `call` schema itself, and nothing more. The instance's `call_policy` is applied after the event went out. `call_ended` fires once the call is over, with `data` as `{ peer, outcome (Completed, Missed, Rejected, Canceled, AcceptedElsewhere, Failed or Unknown), duration (seconds), isVideo, fromMe, timestamp, messageId }`. `call_stream_ready` fires for an incoming call while the instance's call policy is `connect_agent` with agent type `websocket_inbound`; the instance's own webhook URL always receives it in that mode, whatever its events, and a webhook subscription receives it when it lists it. The payload is `{ event, instanceId, data: { callId, caller, streamUrl, expiresInSeconds } }`: `caller` is the caller's number (digits only, or `null`), `streamUrl` the `wss://` address your voice agent connects to (Twilio Media Streams format), valid once and for `expiresInSeconds` (15) seconds. `message`, `message_create` and `message_edit` carry the file in `data.media`, or — when the download failed — `{ status: \"error\", error, detail }`. `error` is temporary for `timed_out`, `timeout`, `queue_overflow`, `network_error`, `hash_mismatch`, `stage_not_downloadable`, `unknown` and any other text (an unexpected error), and final for `not_found`, `message_not_found`, `missing_enc_filehash`, `no_media_data` and `non_chat_jid`. With webhook media mode `url` that object stays in `data.media`; only a file is replaced by `data.media_url`. `media_download_retry` (opt-in) fires once for an incoming media message whose download failed for a temporary reason: the download is tried again 2, 10, 60, 360 and 1440 minutes after the failure; an attempt the instance cannot answer (offline, restarting) is postponed and does not count, and 1450 minutes after the failure the retry ends either way. `data.message` is the message from the original event and `data.media` the file — or `{ status: \"error\", error, detail, final: true }` once every attempt failed or a final reason came back; there `error` is the code of the last attempt — one of the reasons above, `no_media` for a message without a medium, or `unknown` with the text in `detail` — or, when no attempt reached the instance, the `error` of the original event — and `data.retry` is `{ outcome (delivered or failed), attempts, firstFailedAt, firstError, originalEvent }`. A file that reaches you for the same message in another event (`message` and `message_create`) cancels the retry. Nothing is retried for your own messages, or unless a webhook listens to `media_download_retry` (with media mode `base64` or `url`) or to `media_downloaded` (any media mode). `media_downloaded` (opt-in) fires once for an incoming media message as soon as its file is available — on the first download or after a retry — with `data.message` only; fetch the file with download-media. A repeat for the same message id is rare but possible (an edit of the message a day later, or a platform update in between) and safe to ignore. It works with every media mode, also `none`, and needs `message`, `message_create` or `message_edit` subscribed on the instance, since those are the events that download media. It does not fire when the download fails for good (that is `media_download_retry` with `final: true`), nor for your own messages. `otp_code_sent`, `otp_verified`, `otp_sender_mismatch` and `otp_failed` (opt-in) report the progress of a verification request (see the `otp` tag): the code went out, the code was accepted, a different account than the expected identity wrote in, or the code could not be sent. The payload is `{ event, instanceId, data: { request_id, mode, identity, status, reason } }`. `identity` is the sender's identity when known, else the expected identity of a check request, else `null`; on `otp_sender_mismatch` it is the pseudonym of the other, intruding account and must not be stored as your user's identity. `reason` is `null`, except on `otp_failed`, where it is `send_failed` (the reply carrying the code could not be sent) and nothing else: an expired or locked request fires no event — the verify call answers `expired` or `too_many_attempts` at once, and GET shows the status. The code itself is never part of any payload. `frontdesk_handover` (opt-in) fires when Frontdesk hands a conversation over to a person. The payload is `{ event, instanceId, data: { chatId, from, excerpt, reason, at } }`: `chatId` is the chat (`…@c.us` or `…@lid`), `from` the sender's number as `…@c.us` when it is known, else the chat id, `excerpt` the newest part of the customer's new messages (at most 200 characters, cut at the front; empty when Frontdesk did not read the conversation, for example for a voice note or at a limit), and `at` the time of the handover in UTC. `reason` is one of `not_in_knowledge` (the answer is not in the knowledge base), `customer_asked_for_human` (the customer asked for a person), `media_received` (a message without text, such as a voice note or a picture without caption, which Frontdesk cannot read), `suggestion_pending` (suggestion mode: a draft reply waits for approval in your account), `not_delivered` (an autopilot reply could not be sent, or was not confirmed as delivered within two minutes), `knowledge_unavailable` (the knowledge base could not be searched), `ai_key_failed` (your own AI provider key was refused or could not be reached; Frontdesk never falls back to another key), `limit_reached` (the number's limit of AI replies per hour or per day, the account's limit per day, or the monthly budget of the standard model is reached; every AI reply counts, also one that handed over; Frontdesk read nothing), `action_failed` (a data source the business connected could not be queried), `sender_unknown` (an action needs the customer's number and it is not known) and `failed` (Frontdesk could not answer for another reason). Every handover marks the chat unread on your phone. Except for `suggestion_pending`, Frontdesk then does not answer in that chat for 24 hours, and a message you send in the chat yourself (from your phone or through the API) pauses it for 12 hours. In autopilot mode the customer is told that a person will take over, except for `not_delivered`, `limit_reached` and `failed`.",
                 "enum": [
                     "message",
                     "loading_screen",
@@ -20481,10 +20854,16 @@
                     "change_state",
                     "call",
                     "call_ended",
+                    "call_stream_ready",
                     "vote_update",
                     "media_download_retry",
                     "media_downloaded",
-                    "presence_update"
+                    "presence_update",
+                    "otp_code_sent",
+                    "otp_verified",
+                    "otp_sender_mismatch",
+                    "otp_failed",
+                    "frontdesk_handover"
                 ]
             },
             "events": {
@@ -20635,7 +21014,7 @@
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "The URL that will receive event payloads.",
+                        "description": "The URL that will receive event payloads. Must be reachable from the internet: localhost, private network addresses (127.x, 10.x, 172.16-31.x, 192.168.x) and local names (e.g. a docker service name) are refused with 422.",
                         "example": "https://hooks.zapier.com/hooks/standard/123456/abc123/"
                     },
                     "events": {
@@ -20766,6 +21145,243 @@
                                 "description": "The instance page where the protection can be reviewed."
                             }
                         }
+                    }
+                }
+            },
+            "otpError": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "example": "error"
+                    },
+                    "error": {
+                        "type": "string",
+                        "enum": [
+                            "otp_disabled",
+                            "invalid_identity",
+                            "rate_limited",
+                            "instance_not_ready"
+                        ],
+                        "example": "rate_limited"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Too many verification requests. Retry later."
+                    },
+                    "retryInSeconds": {
+                        "type": "integer",
+                        "description": "Only on `rate_limited`.",
+                        "example": 120
+                    }
+                }
+            },
+            "otpRequestCreate": {
+                "type": "object",
+                "properties": {
+                    "identity": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "An identity returned by a previous verification. Present: check mode. Absent: register mode. A pseudonym, not a secret; format `v1_` plus 52 characters of A-Z and 2-7.",
+                        "example": "v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    },
+                    "locale": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "enum": [
+                            "de",
+                            "en",
+                            null
+                        ],
+                        "description": "Language of the built-in texts: the reply that carries the code and the not-linked hint. Default `en`. A text the instance has replaced is sent as written."
+                    },
+                    "app_name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 40,
+                        "description": "Your product name. Shown in front of the code in the built-in reply; in an instance's own reply text it fills `{app_name}`. Letters, digits, spaces and `. , & ' -` only."
+                    }
+                }
+            },
+            "otpStatus": {
+                "type": "string",
+                "enum": [
+                    "pending",
+                    "code_sent",
+                    "verified",
+                    "sender_mismatch",
+                    "expired",
+                    "failed",
+                    "locked"
+                ],
+                "description": "`pending`: waiting for the user's message. `code_sent`: the code is out. `verified`: passed. `sender_mismatch`: check mode and a different account wrote in. `expired`: no completion in time. `failed`: the code could not be sent. `locked`: 5 wrong attempts on this request, or 10 wrong attempts for the identity in 24 hours."
+            },
+            "otpRequest": {
+                "type": "object",
+                "properties": {
+                    "request_id": {
+                        "type": "string",
+                        "example": "01jabcdefghjkmnpqrstvwxyz0"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/otpStatus"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "register",
+                            "check"
+                        ]
+                    },
+                    "token": {
+                        "type": "string",
+                        "description": "The 6-character keyword the user must send.",
+                        "example": "K7P3MX"
+                    },
+                    "message_text": {
+                        "type": "string",
+                        "description": "The text to send: `Code {token}`.",
+                        "example": "Code K7P3MX"
+                    },
+                    "link": {
+                        "type": "string",
+                        "description": "Opens a chat with the instance's number and the message pre-filled. Show it as a link or a QR code.",
+                        "example": "https://wa.me/41790000000?text=Code%20K7P3MX"
+                    },
+                    "expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "The request is valid until this time (10 minutes after creation)."
+                    },
+                    "code_sent_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "When the code was sent; `null` until then. The code is valid 5 minutes from here."
+                    },
+                    "latency_ms": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Milliseconds between the user's message arriving and the code being sent, counted in whole seconds: the message timestamp has no finer resolution, so `0` means within the same second. `null` until a code was sent."
+                    }
+                }
+            },
+            "otpRequestStatus": {
+                "type": "object",
+                "properties": {
+                    "request_id": {
+                        "type": "string",
+                        "example": "01jabcdefghjkmnpqrstvwxyz0"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/otpStatus"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "register",
+                            "check"
+                        ]
+                    },
+                    "expires_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "The request is valid until this time (10 minutes after creation)."
+                    },
+                    "code_sent_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time",
+                        "description": "When the code was sent; `null` until then. The code is valid 5 minutes from here."
+                    },
+                    "latency_ms": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "Milliseconds between the user's message arriving and the code being sent, counted in whole seconds: the message timestamp has no finer resolution, so `0` means within the same second. `null` until a code was sent."
+                    }
+                }
+            },
+            "otpVerifyRequest": {
+                "type": "object",
+                "required": [
+                    "code"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "pattern": "^[0-9]{6}$",
+                        "description": "The 6-digit code the user typed.",
+                        "example": "482913"
+                    }
+                }
+            },
+            "otpVerified": {
+                "type": "object",
+                "properties": {
+                    "verified": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "register",
+                            "check"
+                        ]
+                    },
+                    "identity": {
+                        "type": "string",
+                        "description": "The account's identity. Store it with your user and pass it as `identity` in later checks.",
+                        "example": "v1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    },
+                    "phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The sender's phone number in international format, when known. Not guaranteed and never a key.",
+                        "example": "+41790000000"
+                    }
+                }
+            },
+            "otpRejected": {
+                "type": "object",
+                "properties": {
+                    "verified": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "reason": {
+                        "type": "string",
+                        "enum": [
+                            "wrong_code",
+                            "expired",
+                            "too_many_attempts",
+                            "no_code_sent",
+                            "sender_mismatch",
+                            "already_used"
+                        ],
+                        "description": "`wrong_code`: not the code. `expired`: the code or request ran out. `too_many_attempts`: attempt limit reached. `no_code_sent`: the user has not written in yet. `sender_mismatch`: check mode, a different account wrote in. `already_used`: the code was accepted before."
                     }
                 }
             }

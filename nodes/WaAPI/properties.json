@@ -79,6 +79,11 @@
         "name": "Otp",
         "value": "Otp",
         "description": "Verify that an end user controls a messenger account, without sending them an SMS. The user opens the link from `create-otp-request`, which pre-fills a message containing a short keyword, and sends it to your instance's number. The instance answers with a 6-digit code, the user types the code into your app, and you check it with `verify-otp-code`. The end user always writes first: the API never sends an unsolicited code.\n\n## Two modes\n\n- **register** (no `identity` in the request): the first time. A successful verification returns an `identity` for the account that wrote in. Store it with your user.\n- **check** (`identity` in the request): the user already has an identity with you. Only the account behind that identity can pass; anybody else gets `sender_mismatch`.\n\n## Flow\n\n1. `POST /instances/{id}/otp` returns `request_id`, `token`, `message_text` and `link`. Show the link or a QR code of it. The request is valid for 10 minutes.\n2. The user sends the pre-filled message. The instance replies with the code (valid 5 minutes, single use) and fires `otp_code_sent`.\n3. `POST /instances/{id}/otp/{requestId}/verify` with the code the user typed. `GET /instances/{id}/otp/{requestId}` shows the status at any time, for polling or after a missed webhook.\n4. Subscribe to `otp_code_sent`, `otp_verified`, `otp_sender_mismatch` and `otp_failed` for push updates. Like every event they reach the instance's `webhook_url` when listed in its `webhook_events`, and every webhook subscription that listens to them.\n\n## What this proves, and what it does not\n\n- **Security level:** comparable to SMS two-factor authentication. Whoever takes over the messenger account passes the check, exactly as whoever takes over a phone number passes an SMS check. It is a good fit for sign-up and login confirmation, not for protecting high-value operations on its own.\n- **Trust on first use:** the registration step trusts whoever completes it first. The identity returned at registration is only as reliable as that moment.\n- **Keep a fallback:** offer backup codes or e-mail recovery. A user who loses the messenger account cannot pass a check any more.\n- **Use a dedicated instance:** codes are replies sent by the instance and queue behind the instance's other sends. Do not share the instance with bulk messaging, or codes arrive late.\n- **The identity is a pseudonym, not a secret:** it is derived per customer account (the same person has a different identity with each of your accounts), looks like `v1_` followed by 52 characters, and is stable for the same messenger account. Store it with the user, like a user id. Anybody who knows it can ask for a check against it, but cannot pass one without controlling the messenger account.\n- **`phone` is not guaranteed and never a key:** the verify response may carry the sender's phone number as `phone`, or `null` when it is not known. Never use it to identify a user; use `identity`.\n- **A new messenger account means registering again:** a user who moves to a new account has a new identity. Let them re-register through your fallback.\n\n## Reply texts\n\nThe instance answers in German or English, picked by the request's `locale`: \"Your code is 482913. Valid for 5 minutes. Never share this code — not even with us.\", with `app_name` and a colon in front when the request has one. A sender whose number does not belong to the expected account gets \"This account is not linked.\", at most once an hour.\n\nBoth texts can be replaced per instance in your account (the Verification Codes card); the API cannot change them. An own text is sent as written, whatever the request's `locale`:\n\n- `{code}` exactly once. `{minutes}` (how long the code is valid) and `{app_name}` (from the request, empty without one) at most once each.\n- At most 300 characters, at least 10 of them your own, and at least 3 letters directly before or after `{code}`.\n- `{code}` cannot be part of a link or an e-mail address.\n- The not-linked hint can also be switched off: a sender whose number does not belong to the expected account then gets no reply at all.\n- An empty field means the built-in text again.\n\n## Limits\n\n- Per sender and instance: 3 codes per 10 minutes and 10 per day.\n- Per instance: 120 requests per hour. Per customer account: 1000 requests per hour. Over either, `POST /instances/{id}/otp` answers 429 `rate_limited` with `retryInSeconds` and a `Retry-After` header.\n- Per request: at most 3 codes (a further message with the keyword gets no reply), and 5 wrong attempts, after which the request is `locked`. Per identity: 10 wrong attempts in 24 hours, which also locks it. `failed` means only that the code could not be sent.\n\n## Availability\n\nVerification is switched on per instance in your account; it cannot be changed through the API. The instance's `otp.enabled` shows the state. A switched-off instance answers 409 `otp_disabled`. An instance that is offline or cannot run verification right now answers 503 `instance_not_ready`."
+      },
+      {
+        "name": "Frontdesk",
+        "value": "Frontdesk",
+        "description": "Who answers the incoming one-to-one text messages of an instance, and whether answering is switched on. Through the API you connect **your own Vapi assistant**; Frontdesk's own answers (knowledge base, actions, mode, instructions) are set up in your account.\n\n- `answer_source: vapi` — your Vapi assistant answers every one-to-one text message directly, under your Vapi account, through Vapi's Chat API. Chats are never paused or handed over; a message the assistant cannot answer (a picture, a voice message, a limit, an error at Vapi) stays unanswered and shows on the activity page.\n- `answer_source: waapi` — Frontdesk's own answers. Through the API this only switches back: it **switches answering off** and deletes the stored Vapi key and assistant id at once (there is no confirmation step in the API). Switch our answers on in your account. A request whose result would be answering switched on with `waapi` is refused with 409 `use_dashboard`.\n\n## Connecting a Vapi assistant\n\n`PUT /instances/{id}/frontdesk` with `answer_source: vapi`, `vapi.assistant_id` (the assistant's UUID from the Vapi dashboard) and `vapi.api_key` (your **private** Vapi key, not the public one), plus `enabled: true` to switch answering on in the same request. Before anything is stored the key and the assistant are checked at Vapi (`GET https://api.vapi.ai/assistant/{assistant_id}`, 10 s): a refused key is a 422 on `vapi.api_key`, an unknown assistant a 422 on `vapi.assistant_id`, no answer from Vapi a 503 `vapi_unreachable`. Nothing is saved then.\n\n- The key is **write-only**: it is stored encrypted and never returned; `vapi.has_api_key` says whether one is stored. Omit `vapi.api_key` or `vapi.assistant_id` (or send `vapi: null`) to keep the stored values; every save in Vapi mode is checked again.\n- A new key, another assistant or another answer source starts every conversation with the assistant afresh; saving the same values keeps the running conversations.\n- Saves that touch `answer_source` or `vapi` are limited to 10 per instance and minute, shared with the dashboard: 429 `rate_limited` with `Retry-After`. `enabled` alone is not limited.\n\n## Switching on\n\n`enabled: true` is refused with 409 and a reason code, and nothing in the request is saved: `use_dashboard` (the answer source would be `waapi`), `globally_disabled` (Frontdesk is not available yet), `node_too_old` (the instance runs on a server version that cannot forward messages yet). A blocked account gets 403. Switching off is always possible. On a test instance answers go only to your own test number.\n\n## `node_updated`\n\nThe PUT answer carries `node_updated`. `false` means the settings are stored but the instance's node could not be told right now: the instance's node picks the switch up on its next update or reboot. You can repeat the request to try again."
       }
     ],
     "default": ""
@@ -269,6 +274,46 @@
           "request": {
             "method": "POST",
             "url": "=/instances/{{$parameter[\"id\"]}}/otp/{{$parameter[\"requestId\"]}}/verify"
+          }
+        }
+      }
+    ],
+    "default": ""
+  },
+  {
+    "displayName": "Operation",
+    "name": "operation",
+    "type": "options",
+    "noDataExpression": true,
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ]
+      }
+    },
+    "options": [
+      {
+        "name": "Get Frontdesk Settings",
+        "value": "Get Frontdesk Settings",
+        "action": "get frontdesk settings",
+        "description": "Who answers the instance's one-to-one text messages (`answer_source`), whether answering is on, and the Vapi assistant id. The Vapi API key is never returned, only `vapi.has_api_key`. Needs the `read` ability.",
+        "routing": {
+          "request": {
+            "method": "GET",
+            "url": "=/instances/{{$parameter[\"id\"]}}/frontdesk"
+          }
+        }
+      },
+      {
+        "name": "Update Frontdesk Settings",
+        "value": "Update Frontdesk Settings",
+        "action": "update frontdesk settings",
+        "description": "Connect your Vapi assistant and switch answering on or off. With `answer_source: vapi` the key and the assistant are checked at Vapi first and nothing is stored unless Vapi accepts both. `answer_source: waapi` switches answering off and deletes the stored Vapi key and assistant id. Answering with Frontdesk's own answers is switched on in the account only (409 `use_dashboard`). `vapi.api_key` is write-only. Answers with the settings as stored and `node_updated`. Needs the `update` ability.",
+        "routing": {
+          "request": {
+            "method": "PUT",
+            "url": "=/instances/{{$parameter[\"id\"]}}/frontdesk"
           }
         }
       }
@@ -2173,7 +2218,7 @@
         "audio_format": "mulaw_8000"
       }
     },
-    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call shows in the instance's status log as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable`, `agent_rejected` or `video_unsupported`). Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call is recorded for the instance as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable` or `agent_rejected`). During the beta this record is not shown in the dashboard: if a call did not reach your agent, contact support with the instance id and the time of the call, and support looks up the reason. Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
     "routing": {
       "request": {
         "body": {
@@ -2326,7 +2371,7 @@
         "audio_format": "mulaw_8000"
       }
     },
-    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call shows in the instance's status log as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable`, `agent_rejected` or `video_unsupported`). Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
+    "description": "How the instance handles incoming calls. `null` or mode `ignore` means the call webhook fires and nothing else. Requirements the schema cannot express: reject_with_message requires message, answer_and_play requires audio_url or video_url, and connect_agent requires agent (with sip_uri for type sip, a public wss:// websocket_url for type websocket, and a webhook URL on the instance for type websocket_inbound) — without them the request is answered with a 422. `connect_agent` answers the call and connects its audio to your voice agent; it is in beta, and an account without it enabled is answered with a 422. Each such call is recorded for the instance as `call_stream_started`, then `call_stream_ended`, or as `call_stream_failed` when the call could not be connected (for example `agent_unreachable` or `agent_rejected`). During the beta this record is not shown in the dashboard: if a call did not reach your agent, contact support with the instance id and the time of the call, and support looks up the reason. Responses never contain the SIP password: `agent.sip_password` is always `null` there and `agent.has_sip_password` says whether one is stored.",
     "routing": {
       "request": {
         "body": {
@@ -2877,6 +2922,164 @@
         ],
         "operation": [
           "Verify Otp Code"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "GET /instances/{id}/frontdesk",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Get Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Get Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "PUT /instances/{id}/frontdesk",
+    "name": "operation",
+    "type": "notice",
+    "typeOptions": {
+      "theme": "info"
+    },
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Update Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Id",
+    "name": "id",
+    "required": true,
+    "description": "Instance ID",
+    "default": 0,
+    "type": "number",
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Update Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Enabled",
+    "name": "enabled",
+    "type": "boolean",
+    "default": true,
+    "description": "Switch answering on or off. `true` needs `answer_source: vapi` (in this request or stored); otherwise 409 `use_dashboard`. Other refusals are 409 with a reason code.",
+    "routing": {
+      "request": {
+        "body": {
+          "enabled": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Update Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Answer Source",
+    "name": "answer_source",
+    "type": "options",
+    "default": "vapi",
+    "description": "`vapi` checks key and assistant at Vapi before saving. `waapi` switches answering off and deletes the stored Vapi key and assistant id.",
+    "options": [
+      {
+        "name": "Waapi",
+        "value": "waapi"
+      },
+      {
+        "name": "Vapi",
+        "value": "vapi"
+      }
+    ],
+    "routing": {
+      "request": {
+        "body": {
+          "answer_source": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Update Frontdesk Settings"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Vapi",
+    "name": "vapi",
+    "default": {
+      "assistant_id": "a1b2c3d4-e5f6-4711-8899-aabbccddeeff",
+      "api_key": "3f1c2a9e-7b44-4d0e-9a51-8c2d6e0f1b77"
+    },
+    "description": "Only with `answer_source: vapi` (in this request or stored); otherwise 422. `null`, like omitting a field, keeps the stored values.",
+    "routing": {
+      "request": {
+        "body": {
+          "vapi": "={{ $value }}"
+        }
+      }
+    },
+    "displayOptions": {
+      "show": {
+        "resource": [
+          "Frontdesk"
+        ],
+        "operation": [
+          "Update Frontdesk Settings"
         ]
       }
     }
